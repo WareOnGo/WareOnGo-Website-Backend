@@ -1,0 +1,28 @@
+{
+  "name": "wareongo-website-backend",
+  "version": "1.0.0",
+  "description": "Content Management System for WareOnGo's main website",
+  "main": "index.js",
+    "type": "module",
+
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rs0125/WareOnGo-Website-Backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/rs0125/WareOnGo-Website-Backend/issues"
+  },
+  "homepage": "https://github.com/rs0125/WareOnGo-Website-Backend#readme",
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "prisma": "^6.16.2"
+  }
+}

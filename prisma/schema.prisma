@@ -1,0 +1,60 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Specifies the data source provider and URL from the .env file.
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Specifies the Prisma client generator.
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Defines the Warehouse model, mapping to the "Warehouse" table in the database.
+model Warehouse {
+  id                  Int      @id @default(autoincrement())
+  warehouseOwnerType  String?
+  warehouseType       String
+  address             String   @db.Text
+  googleLocation      String?
+  city                String
+  state               String
+  postalCode          String?
+  zone                String
+  contactPerson       String
+  contactNumber       String
+  totalSpaceSqft      Int[]
+  offeredSpaceSqft    String?
+  numberOfDocks       String?
+  clearHeightFt       String?
+  compliances         String
+  otherSpecifications String?  @db.Text
+  ratePerSqft         String
+  availability        String?
+  uploadedBy          String
+  isBroker            String?
+  photos              String?
+  createdAt           DateTime? @default(now())
+  statusUpdatedAt     DateTime? @updatedAt @map("status_updated_at")
+
+  // Relation to WarehouseData
+  warehouseData       WarehouseData?
+}
+
+// Defines the WarehouseData model, mapping to the "WarehouseData" table.
+model WarehouseData {
+  id                 Int      @id @default(autoincrement())
+  latitude           Float?
+  longitude          Float?
+  // 1536 is the dimension for OpenAI's text-embedding-3-small model.
+  embedding          Unsupported("vector(1536)")?
+  fireNocAvailable   Boolean?
+  fireSafetyMeasures String?
+  landType           String?
+
+  // Establishes a one-to-one relationship with the Warehouse table.
+  warehouseId        Int       @unique
+  warehouse          Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+}
