@@ -172,17 +172,26 @@ app.get('/warehouses', async (req, res) => {
 
 /**
  * @route   DELETE /cache/warehouses
- * @desc    Clear warehouse cache (useful when data is updated)
+ * @desc    Clear warehouse cache using SCAN (production-safe, non-blocking)
  * @access  Public (you might want to add authentication in production)
  */
 app.delete('/cache/warehouses', async (req, res) => {
   try {
-    // Get all keys matching the warehouse cache pattern
-    const keys = await redis.keys('warehouses:*');
+    const stream = redis.scanIterator({
+      TYPE: 'string',        // Scans for string keys
+      MATCH: 'warehouses:*', // The pattern to match
+      COUNT: 100             // How many keys to fetch per iteration
+    });
     
+    // Collect all keys from the iterator
+    const keys = [];
+    for await (const key of stream) {
+      keys.push(key);
+    }
+
     if (keys.length > 0) {
       await redis.del(keys);
-      console.log(`Cleared ${keys.length} cache entries`);
+      console.log(`Cleared ${keys.length} cache entries using SCAN`);
       res.status(200).json({ 
         message: 'Cache cleared successfully', 
         clearedKeys: keys.length 
