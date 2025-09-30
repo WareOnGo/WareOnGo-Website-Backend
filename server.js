@@ -42,6 +42,49 @@ app.use(cors({
 app.use(express.json()); // Enable JSON body parsing
 
 /**
+ * @route   GET /health
+ * @desc    Health check endpoint to verify server, database, and Redis connectivity
+ * @access  Public
+ */
+app.get('/health', async (req, res) => {
+  const healthCheck = {
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    services: {
+      server: 'OK',
+      database: 'CHECKING',
+      redis: 'CHECKING'
+    }
+  };
+
+  try {
+    // Test database connection
+    await prisma.$queryRaw`SELECT 1`;
+    healthCheck.services.database = 'OK';
+  } catch (dbError) {
+    healthCheck.services.database = 'ERROR';
+    healthCheck.status = 'DEGRADED';
+    console.error('Database health check failed:', dbError);
+  }
+
+  try {
+    // Test Redis connection
+    await redis.ping();
+    healthCheck.services.redis = 'OK';
+  } catch (redisError) {
+    healthCheck.services.redis = 'ERROR';
+    healthCheck.status = 'DEGRADED';
+    console.error('Redis health check failed:', redisError);
+  }
+
+  // Set appropriate HTTP status code
+  const statusCode = healthCheck.status === 'OK' ? 200 : 503;
+  
+  res.status(statusCode).json(healthCheck);
+});
+
+/**
  * @route   GET /warehouses
  * @desc    Get a paginated list of warehouses with selected fields (with Redis caching)
  * @access  Public
