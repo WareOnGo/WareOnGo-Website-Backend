@@ -106,8 +106,8 @@ app.get('/warehouses', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 10;
 
-    // Create cache key based on query parameters
-    const cacheKey = `warehouses:page:${page}:size:${pageSize}`;x
+  // Create cache key based on query parameters
+  const cacheKey = `warehouses:page:${page}:size:${pageSize}`;
     
     // Try to get data from Redis cache first
     try {
