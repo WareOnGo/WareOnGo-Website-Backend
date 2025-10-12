@@ -4,7 +4,17 @@ import { sanitizeForJSON } from '../utils/serialize.js';
 
 export async function createCustomerRequest(req, res) {
   try {
-    const { full_name, phone_number, company_name, preferred_location, additional_requirements } = req.body;
+    const body = req.body || {};
+    const { full_name, phone_number, company_name, preferred_location, additional_requirements } = body;
+
+    if (!req.body) {
+      return res.status(400).json({ error: 'Missing request body (expected JSON)' });
+    }
+
+    if (!prisma.customer_request) {
+      console.error('Prisma client does not have `customer_request` model. Did you run `prisma generate`?');
+      return res.status(500).json({ error: 'Server misconfiguration: customer_request model not available' });
+    }
 
     const missing = [];
     if (!full_name || typeof full_name !== 'string' || full_name.trim().length === 0) missing.push('full_name');

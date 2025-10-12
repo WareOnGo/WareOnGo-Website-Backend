@@ -4,7 +4,17 @@ import { sanitizeForJSON } from '../utils/serialize.js';
 
 export async function createEnquiry(req, res) {
   try {
-    const { name, phoneNumber, email, source } = req.body;
+    const body = req.body || {};
+    const { name, phoneNumber, email, source } = body;
+
+    if (!req.body) {
+      return res.status(400).json({ error: 'Missing request body (expected JSON)' });
+    }
+
+    if (!prisma.enquiry) {
+      console.error('Prisma client does not have `enquiry` model. Did you run `prisma generate`?');
+      return res.status(500).json({ error: 'Server misconfiguration: Enquiry model not available' });
+    }
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return res.status(400).json({ error: 'Invalid or missing `name`' });
