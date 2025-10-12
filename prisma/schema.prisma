@@ -1,23 +1,16 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+generator client {
+  provider = "prisma-client-js"
+}
 
-// Specifies the data source provider and URL from the .env file.
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// Specifies the Prisma client generator.
-generator client {
-  provider = "prisma-client-js"
-}
-
-// Defines the Warehouse model, mapping to the "Warehouse" table in the database.
 model Warehouse {
-  id                  Int      @id @default(autoincrement())
   warehouseOwnerType  String?
   warehouseType       String
-  address             String   @db.Text
+  address             String
   googleLocation      String?
   city                String
   state               String
@@ -30,31 +23,71 @@ model Warehouse {
   numberOfDocks       String?
   clearHeightFt       String?
   compliances         String
-  otherSpecifications String?  @db.Text
+  otherSpecifications String?
   ratePerSqft         String
   availability        String?
   uploadedBy          String
   isBroker            String?
   photos              String?
-  createdAt           DateTime? @default(now())
-  statusUpdatedAt     DateTime? @updatedAt @map("status_updated_at")
-
-  // Relation to WarehouseData
+  createdAt           DateTime?      @default(now())
+  statusUpdatedAt     DateTime?      @updatedAt @map("status_updated_at")
+  id                  Int            @id @default(autoincrement())
   warehouseData       WarehouseData?
 }
 
-// Defines the WarehouseData model, mapping to the "WarehouseData" table.
 model WarehouseData {
-  id                 Int      @id @default(autoincrement())
+  id                 Int                    @id @default(autoincrement())
   latitude           Float?
   longitude          Float?
-  // 1536 is the dimension for OpenAI's text-embedding-3-small model.
-  embedding          Unsupported("vector(1536)")?
+  embedding          Unsupported("vector")?
+  warehouseId        Int                    @unique
   fireNocAvailable   Boolean?
   fireSafetyMeasures String?
   landType           String?
+  warehouse          Warehouse              @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+}
 
-  // Establishes a one-to-one relationship with the Warehouse table.
-  warehouseId        Int       @unique
-  warehouse          Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+model Enquiry {
+  id          Int       @id @default(autoincrement())
+  name        String
+  phoneNumber String    @map("phone_number")
+  email       String?
+  source      String
+  createdat   DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model Draft {
+  sender_number  String   @id
+  status         String
+  warehouse_data Json
+  image_urls     String[]
+  created_at     DateTime @default(now())
+}
+
+model MessageLog {
+  id            Int      @id @default(autoincrement())
+  received_at   DateTime @default(now())
+  sender_number String
+  message_body  String
+  status        String
+  error_message String?
+  image_url     String?
+}
+
+model VerifiedNumber {
+  id           Int      @id @default(autoincrement())
+  phone_number String   @unique
+  name         String
+  is_active    Boolean  @default(true)
+  created_at   DateTime @default(now())
+}
+
+model customer_request {
+  id                      BigInt    @id @default(autoincrement())
+  full_name               String
+  phone_number            String?
+  company_name            String?
+  preferred_location      String?
+  additional_requirements String?
+  created_at              DateTime? @default(now()) @db.Timestamptz(6)
 }

@@ -1,5 +1,5 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from './models/prismaClient.js';
 import cors from 'cors';
 import { createClient } from 'redis';
 import dotenv from 'dotenv';
@@ -7,9 +7,8 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
-// Initialize Express app and Prisma Client
+// Initialize Express app
 const app = express();
-const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
 
 // Initialize Redis client
@@ -40,6 +39,13 @@ app.use(cors({
   credentials: true
 })); // Enable Cross-Origin Resource Sharing
 app.use(express.json()); // Enable JSON body parsing
+
+// Mount MVC routers
+import enquiryRoutes from './routes/enquiryRoutes.js';
+import customerRequestRoutes from './routes/customerRequestRoutes.js';
+
+app.use('/enquiries', enquiryRoutes);
+app.use('/customer-requests', customerRequestRoutes);
 
 /**
  * @route   GET /health
@@ -84,6 +90,9 @@ app.get('/health', async (req, res) => {
   res.status(statusCode).json(healthCheck);
 });
 
+
+// POST endpoints are implemented in the MVC routers mounted above.
+
 /**
  * @route   GET /warehouses
  * @desc    Get a paginated list of warehouses with selected fields (with Redis caching)
@@ -98,7 +107,7 @@ app.get('/warehouses', async (req, res) => {
     const pageSize = parseInt(req.query.pageSize) || 10;
 
     // Create cache key based on query parameters
-    const cacheKey = `warehouses:page:${page}:size:${pageSize}`;
+    const cacheKey = `warehouses:page:${page}:size:${pageSize}`;x
     
     // Try to get data from Redis cache first
     try {
@@ -250,22 +259,27 @@ app.delete('/cache/warehouses', async (req, res) => {
   }
 });
 
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+// Export the app for tests
+export default app;
 
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  console.log('Shutting down gracefully...');
-  try {
-    await redis.quit();
-    await prisma.$disconnect();
-    console.log('Connections closed.');
-    process.exit(0);
-  } catch (error) {
-    console.error('Error during shutdown:', error);
-    process.exit(1);
-  }
-});
+// Start the server when run directly
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+
+  // Graceful shutdown
+  process.on('SIGINT', async () => {
+    console.log('Shutting down gracefully...');
+    try {
+      await redis.quit();
+      await prisma.$disconnect();
+      console.log('Connections closed.');
+      process.exit(0);
+    } catch (error) {
+      console.error('Error during shutdown:', error);
+      process.exit(1);
+    }
+  });
+}
 
