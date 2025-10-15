@@ -102,13 +102,75 @@ app.get('/health', async (req, res) => {
  */
 app.get('/warehouses', async (req, res) => {
   try {
-    // Get page and pageSize from query params, providing default values
+    // Pagination
     const page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 10;
+    const skip = (page - 1) * pageSize;
 
-  // Create cache key based on query parameters
-  const cacheKey = `warehouses:page:${page}:size:${pageSize}`;
+    // Helper function to parse multiple values (comma-separated or multiple params)
+    const parseMultiValue = (value) => {
+      if (!value) return null;
+      if (Array.isArray(value)) return value;
+      return value.includes(',') ? value.split(',').map(v => v.trim()) : [value];
+    };
+
+    // String filters supporting multiple values (OR logic within same field)
+    const filterFields = [
+      'city', 'state', 'warehouseType', 'zone', 'contactPerson', 'compliances'
+    ];
+    const filters = {};
     
+    for (const field of filterFields) {
+      if (req.query[field]) {
+        const values = parseMultiValue(req.query[field]);
+        if (values && values.length > 1) {
+          // Multiple values: use OR logic with 'in' operator
+          filters[field] = { in: values, mode: 'insensitive' };
+        } else if (values && values.length === 1) {
+          // Single value: use partial match
+          filters[field] = { contains: values[0], mode: 'insensitive' };
+        }
+      }
+    }
+
+    // Special handling for address (always partial match, single value only)
+    if (req.query.address) {
+      filters.address = { contains: req.query.address, mode: 'insensitive' };
+    }
+
+    // Numeric range filters
+    // Budget (ratePerSqft)
+    if (req.query.minBudget || req.query.maxBudget) {
+      filters.ratePerSqft = {};
+      if (req.query.minBudget) filters.ratePerSqft.gte = req.query.minBudget;
+      if (req.query.maxBudget) filters.ratePerSqft.lte = req.query.maxBudget;
+    }
+    
+    // Clear height
+    if (req.query.minClearHeight || req.query.maxClearHeight) {
+      filters.clearHeightFt = {};
+      if (req.query.minClearHeight) filters.clearHeightFt.gte = req.query.minClearHeight;
+      if (req.query.maxClearHeight) filters.clearHeightFt.lte = req.query.maxClearHeight;
+    }
+
+    // Store space filters for post-filtering (after DB query)
+    // We'll filter in-memory because Prisma doesn't support range queries on array elements well
+    const minSpace = req.query.minSpace ? parseInt(req.query.minSpace) : null;
+    const maxSpace = req.query.maxSpace ? parseInt(req.query.maxSpace) : null;
+
+    // Fire NOC availability filter (boolean)
+    if (req.query.fireNocAvailable !== undefined) {
+      const fireNocValue = req.query.fireNocAvailable === 'true' || req.query.fireNocAvailable === true;
+      filters.warehouseData = {
+        ...filters.warehouseData,
+        fireNocAvailable: fireNocValue
+      };
+    }
+
+    // Build cache key including filters AND space filters
+    const filterKey = JSON.stringify({ ...filters, minSpace, maxSpace });
+    const cacheKey = `warehouses:page:${page}:size:${pageSize}:filters:${filterKey}`;
+
     // Try to get data from Redis cache first
     try {
       const cachedData = await redis.get(cacheKey);
@@ -123,16 +185,20 @@ app.get('/warehouses', async (req, res) => {
 
     console.log(`Cache MISS for key: ${cacheKey}`);
 
-    // Calculate the number of records to skip
-    const skip = (page - 1) * pageSize;
+    // For space filters, we need to fetch more records and filter in-memory
+    // Calculate how many extra records we might need
+    const needsSpaceFilter = minSpace !== null || maxSpace !== null;
+    const fetchSize = needsSpaceFilter ? pageSize * 3 : pageSize; // Fetch 3x for buffer
+    const fetchSkip = needsSpaceFilter ? Math.max(0, (page - 1) * pageSize * 2) : skip;
 
-    // Fetch a paginated subset of warehouses and the total count in a single transaction
+    // Fetch a paginated, filtered subset of warehouses and the total count in a single transaction
     const [warehouses, totalWarehouses] = await prisma.$transaction([
       prisma.warehouse.findMany({
-        skip: skip,
-        take: pageSize,
+        skip: fetchSkip,
+        take: fetchSize,
+        where: Object.keys(filters).length > 0 ? filters : undefined,
         orderBy: {
-          id: 'desc', // Order the results by warehouse ID in descending order
+          id: 'desc',
         },
         select: {
           id: true,
@@ -145,6 +211,9 @@ app.get('/warehouses', async (req, res) => {
           otherSpecifications: true,
           ratePerSqft: true,
           photos: true,
+          warehouseType: true,
+          zone: true,
+          contactPerson: true,
           warehouseData: {
             select: {
               fireNocAvailable: true,
@@ -153,26 +222,22 @@ app.get('/warehouses', async (req, res) => {
           },
         },
       }),
-      prisma.warehouse.count(), // Get the total number of warehouses
+      prisma.warehouse.count({ where: Object.keys(filters).length > 0 ? filters : undefined }),
     ]);
 
     // Format the warehouse data to be flat
-    const formattedWarehouses = warehouses.map(w => {
-      // Parse photos from JSON string to array, handle cases where it might be null or invalid JSON
+    let formattedWarehouses = warehouses.map(w => {
       let parsedPhotos = [];
       if (w.photos) {
         try {
           parsedPhotos = JSON.parse(w.photos);
-          // Ensure it's an array, if not make it an array
           if (!Array.isArray(parsedPhotos)) {
             parsedPhotos = [parsedPhotos];
           }
         } catch (error) {
-          // If JSON parsing fails, treat as a single photo URL string
           parsedPhotos = [w.photos];
         }
       }
-
       return {
         id: w.id,
         address: w.address,
@@ -184,19 +249,45 @@ app.get('/warehouses', async (req, res) => {
         otherSpecifications: w.otherSpecifications,
         ratePerSqft: w.ratePerSqft,
         photos: parsedPhotos,
+        warehouseType: w.warehouseType,
+        zone: w.zone,
+        contactPerson: w.contactPerson,
         fireNocAvailable: w.warehouseData?.fireNocAvailable,
         fireSafetyMeasures: w.warehouseData?.fireSafetyMeasures,
       };
     });
 
-    // Calculate the total number of pages
-    const totalPages = Math.ceil(totalWarehouses / pageSize);
+    // Post-filter by totalSpaceSqft array if space filters are provided
+    if (minSpace !== null || maxSpace !== null) {
+      formattedWarehouses = formattedWarehouses.filter(warehouse => {
+        const spaces = warehouse.totalSpaceSqft || [];
+        // Check if ANY space value in the array meets the criteria
+        return spaces.some(space => {
+          if (minSpace !== null && maxSpace !== null) {
+            return space >= minSpace && space <= maxSpace;
+          } else if (minSpace !== null) {
+            return space >= minSpace;
+          } else if (maxSpace !== null) {
+            return space <= maxSpace;
+          }
+          return true;
+        });
+      });
+    }
 
-    // Prepare response data
+    // Apply pagination to filtered results
+    const startIndex = needsSpaceFilter ? (page - 1) * pageSize : 0;
+    const paginatedWarehouses = needsSpaceFilter 
+      ? formattedWarehouses.slice(startIndex, startIndex + pageSize)
+      : formattedWarehouses;
+
+    // Recalculate total count if space filter was applied
+    const finalTotalCount = needsSpaceFilter ? formattedWarehouses.length : totalWarehouses;
+    const totalPages = Math.ceil(finalTotalCount / pageSize);
     const responseData = {
-      data: formattedWarehouses,
+      data: paginatedWarehouses,
       pagination: {
-        totalItems: totalWarehouses,
+        totalItems: finalTotalCount,
         totalPages,
         currentPage: page,
         pageSize,
@@ -205,18 +296,15 @@ app.get('/warehouses', async (req, res) => {
 
     // Cache the result in Redis with TTL-based expiration
     try {
-      const cacheTTL = parseInt(process.env.CACHE_TTL) || 300; // Default 5 minutes
+      const cacheTTL = parseInt(process.env.CACHE_TTL) || 300;
       await redis.setEx(cacheKey, cacheTTL, JSON.stringify(responseData));
       console.log(`Cached data with key: ${cacheKey} for ${cacheTTL} seconds`);
     } catch (cacheError) {
       console.log('Cache write error:', cacheError);
-      // Continue without caching if Redis fails
     }
 
-    // Send the paginated data along with pagination metadata
     res.status(200).json(responseData);
   } catch (error) {
-    // Log any errors and send a 500 server error response
     console.error('Error fetching warehouses:', error);
     res.status(500).json({ error: 'An error occurred while fetching warehouses.' });
   }
