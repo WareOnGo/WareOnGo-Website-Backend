@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Google Login - WareOnGo</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <h1>WareOnGo Google Login Test</h1>
+    <p>Test the Google OAuth2 authentication endpoint</p>
+
+    <h3>Setup Instructions:</h3>
+    <ol>
+        <li>Make sure GOOGLE_CLIENT_ID and JWT_SECRET are in your .env file</li>
+        <li>Make sure your server is running on http://localhost:3000</li>
+        <li>Add http://localhost:8080 to Google Cloud Console authorized origins</li>
+        <li>Click the Google Sign-In button below</li>
+    </ol>
+
+    <div id="g_id_onload"
+         data-client_id="457806840342-8uqcocglvgkjd8h9m0mldk79pvbvos8d.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse">
+    </div>
+    <div class="g_id_signin" data-type="standard"></div>
+
+    <div id="loading" style="display: none;">
+        <p>Authenticating...</p>
+    </div>
+
+    <div id="response"></div>
+
+    <script>
+        // Configuration - REPLACE WITH YOUR ACTUAL CLIENT ID
+        const API_BASE_URL = 'http://localhost:3000';
+        
+        // Handle the Google Sign-In response
+        async function handleCredentialResponse(response) {
+            console.log('Google credential received');
+            
+            // Show loading state
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('response').classList.remove('show');
+            
+            try {
+                // Send the Google ID token to our backend
+                const apiResponse = await fetch(`${API_BASE_URL}/api/auth/google-login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        token: response.credential
+                    })
+                });
+
+                const data = await apiResponse.json();
+
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+
+                if (apiResponse.ok) {
+                    // Success
+                    displaySuccess(data);
+                } else {
+                    // Error
+                    displayError(data);
+                }
+            } catch (error) {
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+                
+                // Network or other error
+                displayError({
+                    error: 'Network Error',
+                    message: error.message
+                });
+            }
+        }
+
+        function displaySuccess(data) {
+            const responseDiv = document.getElementById('response');
+            
+            responseDiv.innerHTML = `
+                <h3>✅ Authentication Successful!</h3>
+                
+                <h4>User Information</h4>
+                <p><strong>Name:</strong> ${data.user.name}</p>
+                <p><strong>Email:</strong> ${data.user.email}</p>
+                <p><strong>Google ID:</strong> ${data.user.googleId}</p>
+                <p><strong>Role:</strong> ${data.user.role}</p>
+
+                <h4>JWT Token (expires in 1 hour):</h4>
+                <pre>${data.token}</pre>
+            `;
+            
+            responseDiv.style.display = 'block';
+
+            // Store token in localStorage for testing
+            localStorage.setItem('wareongo_jwt', data.token);
+            console.log('JWT Token:', data.token);
+            console.log('User:', data.user);
+        }
+
+        function displayError(data) {
+            const responseDiv = document.getElementById('response');
+            
+            responseDiv.innerHTML = `
+                <h3>❌ Authentication Failed</h3>
+                <p><strong>Error:</strong> ${data.error || 'Unknown error'}</p>
+                <p><strong>Message:</strong> ${data.message || 'Please try again'}</p>
+            `;
+            
+            responseDiv.style.display = 'block';
+            console.error('Authentication error:', data);
+        }
+
+        // Log when page loads
+        console.log('Google Login Test Page loaded');
+        console.log('API URL:', API_BASE_URL);
+    </script>
+</body>
+</html>

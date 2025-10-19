@@ -43,9 +43,11 @@ app.use(express.json()); // Enable JSON body parsing
 // Mount MVC routers
 import enquiryRoutes from './routes/enquiryRoutes.js';
 import customerRequestRoutes from './routes/customerRequestRoutes.js';
+import authRoutes from './routes/auth.js';
 
 app.use('/enquiries', enquiryRoutes);
 app.use('/customer-requests', customerRequestRoutes);
+app.use('/api/auth', authRoutes);
 
 /**
  * @route   GET /health
