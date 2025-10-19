@@ -11,6 +11,10 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy - Required for Render, Heroku, and other platforms behind reverse proxies
+// This allows Express to correctly identify client IPs from X-Forwarded-For header
+app.set('trust proxy', 1);
+
 // Initialize Redis client
 const redis = createClient({
     username: process.env.REDIS_USERNAME || 'default',
