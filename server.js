@@ -17,12 +17,12 @@ app.set('trust proxy', 1);
 
 // Initialize Redis client
 const redis = createClient({
-    username: process.env.REDIS_USERNAME || 'default',
-    password: process.env.REDIS_PASSWORD,
-    socket: {
-        host: process.env.REDIS_HOST,
-        port: parseInt(process.env.REDIS_PORT) || 6379
-    }
+  username: process.env.REDIS_USERNAME || 'default',
+  password: process.env.REDIS_PASSWORD,
+  socket: {
+    host: process.env.REDIS_HOST,
+    port: parseInt(process.env.REDIS_PORT) || 6379
+  }
 });
 
 redis.on('error', err => console.log('Redis Client Error', err));
@@ -48,10 +48,12 @@ app.use(express.json()); // Enable JSON body parsing
 import enquiryRoutes from './routes/enquiryRoutes.js';
 import customerRequestRoutes from './routes/customerRequestRoutes.js';
 import authRoutes from './routes/auth.js';
+import warehouseRoutes from './routes/warehouseRoutes.js';
 
 app.use('/enquiries', enquiryRoutes);
 app.use('/customer-requests', customerRequestRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/warehouses', warehouseRoutes);
 
 /**
  * @route   GET /health
@@ -92,7 +94,7 @@ app.get('/health', async (req, res) => {
 
   // Set appropriate HTTP status code
   const statusCode = healthCheck.status === 'OK' ? 200 : 503;
-  
+
   res.status(statusCode).json(healthCheck);
 });
 
@@ -125,7 +127,7 @@ app.get('/warehouses', async (req, res) => {
       'city', 'state', 'warehouseType', 'zone', 'contactPerson', 'compliances'
     ];
     const filters = {};
-    
+
     for (const field of filterFields) {
       if (req.query[field]) {
         const values = parseMultiValue(req.query[field]);
@@ -151,7 +153,7 @@ app.get('/warehouses', async (req, res) => {
       if (req.query.minBudget) filters.ratePerSqft.gte = req.query.minBudget;
       if (req.query.maxBudget) filters.ratePerSqft.lte = req.query.maxBudget;
     }
-    
+
     // Clear height
     if (req.query.minClearHeight || req.query.maxClearHeight) {
       filters.clearHeightFt = {};
@@ -283,7 +285,7 @@ app.get('/warehouses', async (req, res) => {
 
     // Apply pagination to filtered results
     const startIndex = needsSpaceFilter ? (page - 1) * pageSize : 0;
-    const paginatedWarehouses = needsSpaceFilter 
+    const paginatedWarehouses = needsSpaceFilter
       ? formattedWarehouses.slice(startIndex, startIndex + pageSize)
       : formattedWarehouses;
 
@@ -328,7 +330,7 @@ app.delete('/cache/warehouses', async (req, res) => {
       MATCH: 'warehouses:*', // The pattern to match
       COUNT: 100             // How many keys to fetch per iteration
     });
-    
+
     // Collect all keys from the iterator
     const keys = [];
     for await (const key of stream) {
@@ -338,13 +340,13 @@ app.delete('/cache/warehouses', async (req, res) => {
     if (keys.length > 0) {
       await redis.del(keys);
       console.log(`Cleared ${keys.length} cache entries using SCAN`);
-      res.status(200).json({ 
-        message: 'Cache cleared successfully', 
-        clearedKeys: keys.length 
+      res.status(200).json({
+        message: 'Cache cleared successfully',
+        clearedKeys: keys.length
       });
     } else {
-      res.status(200).json({ 
-        message: 'No cache entries found to clear' 
+      res.status(200).json({
+        message: 'No cache entries found to clear'
       });
     }
   } catch (error) {
