@@ -7,6 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model Warehouse {
   warehouseOwnerType  String?
   warehouseType       String
@@ -32,19 +33,33 @@ model Warehouse {
   createdAt           DateTime?      @default(now())
   statusUpdatedAt     DateTime?      @updatedAt @map("status_updated_at")
   id                  Int            @id @default(autoincrement())
+  visibility          Boolean?       @default(false)
   warehouseData       WarehouseData?
+
+  @@index([address(ops: raw("gin_trgm_ops"))], map: "idx_warehouse_address_trgm", type: Gin)
+  @@index([clearHeightFt], map: "idx_warehouse_clear_height")
+  @@index([id, city, state, warehouseType, ratePerSqft, address, zone, contactPerson], map: "idx_warehouse_common_fields")
+  @@index([compliances(ops: raw("gin_trgm_ops"))], map: "idx_warehouse_compliances_trgm", type: Gin)
+  @@index([ratePerSqft], map: "idx_warehouse_rate")
+  @@index([totalSpaceSqft], map: "idx_warehouse_space_gin", type: Gin)
 }
 
 model WarehouseData {
-  id                 Int                    @id @default(autoincrement())
-  latitude           Float?
-  longitude          Float?
-  embedding          Unsupported("vector")?
-  warehouseId        Int                    @unique
-  fireNocAvailable   Boolean?
-  fireSafetyMeasures String?
-  landType           String?
-  warehouse          Warehouse              @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  id                  Int                    @id @default(autoincrement())
+  latitude            Float?
+  longitude           Float?
+  embedding           Unsupported("vector")?
+  warehouseId         Int                    @unique
+  fireNocAvailable    Boolean?
+  fireSafetyMeasures  String?
+  landType            String?
+  approachRoadWidth   String?
+  dimensions          String?
+  parkingDockingSpace String?
+  pollutionZone       String?
+  powerKva            String?
+  vaastuCompliance    String?
+  warehouse           Warehouse              @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
 }
 
 model Enquiry {

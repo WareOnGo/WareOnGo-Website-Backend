@@ -175,6 +175,9 @@ app.get('/warehouses', async (req, res) => {
       };
     }
 
+    // Always filter out warehouses with visibility set to false
+    filters.visibility = true;
+
     // Build cache key including filters AND space filters
     const filterKey = JSON.stringify({ ...filters, minSpace, maxSpace });
     const cacheKey = `warehouses:page:${page}:size:${pageSize}:filters:${filterKey}`;
@@ -204,7 +207,7 @@ app.get('/warehouses', async (req, res) => {
       prisma.warehouse.findMany({
         skip: fetchSkip,
         take: fetchSize,
-        where: Object.keys(filters).length > 0 ? filters : undefined,
+        where: filters,
         orderBy: {
           id: 'desc',
         },
@@ -230,7 +233,7 @@ app.get('/warehouses', async (req, res) => {
           },
         },
       }),
-      prisma.warehouse.count({ where: Object.keys(filters).length > 0 ? filters : undefined }),
+      prisma.warehouse.count({ where: filters }),
     ]);
 
     // Format the warehouse data to be flat

@@ -18,9 +18,12 @@ export async function getWarehouseById(req, res) {
       return res.status(500).json({ error: 'Server misconfiguration: warehouse model not available' });
     }
 
-    // Query database for warehouse with related WarehouseData
+    // Query database for warehouse with related WarehouseData (only visible warehouses)
     const warehouse = await prisma.warehouse.findUnique({
-      where: { id: warehouseId },
+      where: { 
+        id: warehouseId,
+        visibility: true
+      },
       include: {
         warehouseData: {
           select: {
@@ -31,7 +34,7 @@ export async function getWarehouseById(req, res) {
       }
     });
 
-    // Handle warehouse not found
+    // Handle warehouse not found or not visible
     if (!warehouse) {
       return res.status(404).json({ error: 'Warehouse not found' });
     }
