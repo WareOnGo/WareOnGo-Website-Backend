@@ -20,7 +20,7 @@ export async function getWarehouseById(req, res) {
 
     // Query database for warehouse with related WarehouseData (only visible warehouses)
     const warehouse = await prisma.warehouse.findUnique({
-      where: { 
+      where: {
         id: warehouseId,
         visibility: true
       },
@@ -69,6 +69,7 @@ export async function getWarehouseById(req, res) {
       clearHeightFt: warehouse.clearHeightFt,
       city: warehouse.city,
       state: warehouse.state,
+      postalCode: warehouse.postalCode,
       photos: parsedPhotos,
       warehouseType: warehouse.warehouseType,
       zone: warehouse.zone,
