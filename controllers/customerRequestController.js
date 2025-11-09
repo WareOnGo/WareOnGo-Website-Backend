@@ -1,6 +1,7 @@
 import prisma from '../models/prismaClient.js';
 import { isValidPhoneNumber } from '../utils/phone.js';
 import { sanitizeForJSON } from '../utils/serialize.js';
+import notificationService from '../utils/notificationService.js';
 
 export async function createCustomerRequest(req, res) {
   try {
@@ -35,6 +36,15 @@ export async function createCustomerRequest(req, res) {
         preferred_location: preferred_location.trim(),
         additional_requirements: additional_requirements.trim(),
       },
+    });
+
+    // Send notification asynchronously - don't wait for completion or let failures affect response
+    setImmediate(async () => {
+      try {
+        await notificationService.sendCustomerRequestNotification(created);
+      } catch (error) {
+        console.error(`Failed to send customer request notification for ID ${created.id}:`, error);
+      }
     });
 
     res.status(201).json(sanitizeForJSON(created));

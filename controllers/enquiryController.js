@@ -1,6 +1,7 @@
 import prisma from '../models/prismaClient.js';
 import { isValidPhoneNumber } from '../utils/phone.js';
 import { sanitizeForJSON } from '../utils/serialize.js';
+import notificationService from '../utils/notificationService.js';
 
 export async function createEnquiry(req, res) {
   try {
@@ -36,6 +37,16 @@ export async function createEnquiry(req, res) {
         email: email ? email.trim() : null,
         source: source.trim(),
       },
+    });
+
+    // Send notification asynchronously - don't wait for completion or let failures affect response
+    setImmediate(async () => {
+      try {
+        await notificationService.sendEnquiryNotification(created);
+      } catch (error) {
+        // Log error but don't affect the main response
+        console.error(`Failed to send enquiry notification for ID ${created.id}:`, error);
+      }
     });
 
     res.status(201).json(sanitizeForJSON(created));

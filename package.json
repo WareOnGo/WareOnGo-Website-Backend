@@ -7,9 +7,14 @@
   "scripts": {
     "postinstall": "npx prisma generate",
     "start": "node server.js",
-    "test": "node ./scripts/test_enquiry.js && node ./scripts/test_customer_request.js",
+    "test": "node tests/enquiry-notification.test.js",
+    "test:unit": "node tests/enquiry-notification.test.js",
+    "test:customer-notifications": "node --experimental-vm-modules node_modules/.bin/jest tests/customer-request-notification.test.js --verbose",
+    "test:integration-notifications": "node --experimental-vm-modules node_modules/.bin/jest tests/integration-notification.test.js --verbose",
     "test:enquiry": "node ./scripts/test_enquiry.js",
-    "test:customer": "node ./scripts/test_customer_request.js"
+    "test:customer": "node ./scripts/test_customer_request.js",
+    "test:integration": "node ./scripts/test_enquiry.js && node ./scripts/test_customer_request.js",
+    "test:emailjs": "node ./scripts/test_email_simple.js"
   },
   "repository": {
     "type": "git",
@@ -23,6 +28,7 @@
   },
   "homepage": "https://github.com/rs0125/WareOnGo-Website-Backend#readme",
   "dependencies": {
+    "@emailjs/nodejs": "^5.0.2",
     "@prisma/client": "^6.16.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -32,5 +38,11 @@
     "jsonwebtoken": "^9.0.2",
     "prisma": "^6.16.2",
     "redis": "^5.8.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0"
   }
 }
