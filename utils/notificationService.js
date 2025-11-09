@@ -2,9 +2,7 @@ import emailjs from '@emailjs/nodejs';
 
 // Hardcoded recipient list configuration
 const NOTIFICATION_RECIPIENTS = [
-  'ranita@wareongo.com',
-  'Dhaval@wareongo.com'
-  // Add more emails as needed
+  'ranita@wareongo.com',  // Add more emails as needed
 ];
 
 // Rate limiting configuration
