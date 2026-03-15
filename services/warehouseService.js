@@ -116,6 +116,8 @@ class WarehouseService {
             select: {
               fireNocAvailable: true,
               fireSafetyMeasures: true,
+              latitude: true,
+              longitude: true,
             },
           },
         },
@@ -151,6 +153,8 @@ class WarehouseService {
         zone: w.zone,
         contactPerson: w.contactPerson,
         googleLocation: w.googleLocation,
+        latitude: w.warehouseData?.latitude,
+        longitude: w.warehouseData?.longitude,
         fireNocAvailable: w.warehouseData?.fireNocAvailable,
         fireSafetyMeasures: w.warehouseData?.fireSafetyMeasures,
       };
@@ -182,7 +186,7 @@ class WarehouseService {
     // Recalculate total count if space filter was applied
     const finalTotalCount = needsSpaceFilter ? formattedWarehouses.length : totalWarehouses;
     const totalPages = Math.ceil(finalTotalCount / pageSize);
-    
+
     const responseData = {
       data: paginatedWarehouses,
       pagination: {

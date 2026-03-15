@@ -99,6 +99,8 @@ Filters support multiple values using comma separation or multiple parameters:
       "zone": "Industrial",
       "contactPerson": "John Doe",
       "googleLocation": "https://maps.google.com/...",
+      "latitude": 19.1136,
+      "longitude": 72.8697,
       "fireNocAvailable": true,
       "fireSafetyMeasures": "Fire extinguishers, sprinkler system"
     }
@@ -143,6 +145,8 @@ Retrieve detailed information for a specific warehouse.
   "otherSpecifications": "24/7 Security, CCTV",
   "ratePerSqft": "150",
   "googleLocation": "https://maps.google.com/...",
+  "latitude": 19.1136,
+  "longitude": 72.8697,
   "fireNocAvailable": true,
   "fireSafetyMeasures": "Fire extinguishers, sprinkler system"
 }
