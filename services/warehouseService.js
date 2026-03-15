@@ -64,6 +64,20 @@ class WarehouseService {
       };
     }
 
+    // Has coordinates filter (boolean)
+    if (filters.hasCoordinates !== undefined) {
+      const hasCoordinatesValue = filters.hasCoordinates === 'true' || filters.hasCoordinates === true;
+      if (hasCoordinatesValue) {
+        dbFilters.warehouseData = {
+          ...dbFilters.warehouseData,
+          AND: [
+            { latitude: { not: null } },
+            { longitude: { not: null } }
+          ]
+        };
+      }
+    }
+
     // Always filter out warehouses with visibility set to false
     dbFilters.visibility = true;
 

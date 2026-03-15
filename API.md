@@ -72,6 +72,7 @@ Retrieve paginated list of warehouses with filtering and caching.
 | `minSpace` | integer | Minimum space requirement | `?minSpace=1000` |
 | `maxSpace` | integer | Maximum space requirement | `?maxSpace=5000` |
 | `fireNocAvailable` | boolean | Fire NOC availability | `?fireNocAvailable=true` |
+| `hasCoordinates` | boolean | Only return warehouses with valid lat/long | `?hasCoordinates=true` |
 
 **Multiple Values:**
 Filters support multiple values using comma separation or multiple parameters:
