@@ -1,5 +1,48 @@
 import prisma from '../models/prismaClient.js';
 import { sanitizeForJSON } from '../utils/serialize.js';
+import warehouseService from '../services/warehouseService.js';
+
+export async function getWarehouses(req, res) {
+  try {
+    // Pagination
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || 10;
+
+    // Extract filters from query parameters
+    const filters = {
+      city: req.query.city,
+      state: req.query.state,
+      warehouseType: req.query.warehouseType,
+      zone: req.query.zone,
+      contactPerson: req.query.contactPerson,
+      compliances: req.query.compliances,
+      address: req.query.address,
+      minBudget: req.query.minBudget,
+      maxBudget: req.query.maxBudget,
+      minClearHeight: req.query.minClearHeight,
+      maxClearHeight: req.query.maxClearHeight,
+      minSpace: req.query.minSpace,
+      maxSpace: req.query.maxSpace,
+      fireNocAvailable: req.query.fireNocAvailable
+    };
+
+    const result = await warehouseService.getWarehouses(filters, page, pageSize);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error fetching warehouses:', error);
+    res.status(500).json({ error: 'An error occurred while fetching warehouses.' });
+  }
+}
+
+export async function clearWarehouseCache(req, res) {
+  try {
+    const result = await warehouseService.clearWarehouseCache();
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error clearing cache:', error);
+    res.status(500).json({ error: 'Failed to clear cache' });
+  }
+}
 
 export async function getWarehouseById(req, res) {
   try {
@@ -76,6 +119,7 @@ export async function getWarehouseById(req, res) {
       compliances: warehouse.compliances,
       otherSpecifications: warehouse.otherSpecifications,
       ratePerSqft: warehouse.ratePerSqft,
+      googleLocation: warehouse.googleLocation,
       // Include WarehouseData fields if available
       fireNocAvailable: warehouse.warehouseData?.fireNocAvailable || null,
       fireSafetyMeasures: warehouse.warehouseData?.fireSafetyMeasures || null
