@@ -64,6 +64,15 @@ class WarehouseService {
       };
     }
 
+    // Has coordinates filter (boolean) - filter at database level for performance
+    if (filters.hasCoordinates === 'true' || filters.hasCoordinates === true) {
+      dbFilters.warehouseData = {
+        ...dbFilters.warehouseData,
+        latitude: { not: null },
+        longitude: { not: null }
+      };
+    }
+
     // Has coordinates filter (boolean)
     if (filters.hasCoordinates !== undefined) {
       const hasCoordinatesValue = filters.hasCoordinates === 'true' || filters.hasCoordinates === true;

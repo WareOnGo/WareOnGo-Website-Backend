@@ -23,7 +23,8 @@ export async function getWarehouses(req, res) {
       maxClearHeight: req.query.maxClearHeight,
       minSpace: req.query.minSpace,
       maxSpace: req.query.maxSpace,
-      fireNocAvailable: req.query.fireNocAvailable
+      fireNocAvailable: req.query.fireNocAvailable,
+      hasCoordinates: req.query.hasCoordinates
     };
 
     const result = await warehouseService.getWarehouses(filters, page, pageSize);
@@ -72,6 +73,8 @@ export async function getWarehouseById(req, res) {
           select: {
             fireNocAvailable: true,
             fireSafetyMeasures: true,
+            latitude: true,
+            longitude: true,
           }
         }
       }
@@ -121,6 +124,8 @@ export async function getWarehouseById(req, res) {
       ratePerSqft: warehouse.ratePerSqft,
       googleLocation: warehouse.googleLocation,
       // Include WarehouseData fields if available
+      latitude: warehouse.warehouseData?.latitude || null,
+      longitude: warehouse.warehouseData?.longitude || null,
       fireNocAvailable: warehouse.warehouseData?.fireNocAvailable || null,
       fireSafetyMeasures: warehouse.warehouseData?.fireSafetyMeasures || null
     };
