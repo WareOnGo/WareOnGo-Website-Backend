@@ -92,7 +92,7 @@ class WarehouseService {
 
     // Build cache key including filters AND space filters
     const filterKey = JSON.stringify({ ...dbFilters, minSpace, maxSpace });
-    const cacheKey = `warehouses:page:${page}:size:${pageSize}:filters:${filterKey}`;
+    const cacheKey = `warehouses:v2:page:${page}:size:${pageSize}:filters:${filterKey}`;
 
     // Try to get data from Redis cache first
     try {
@@ -131,6 +131,7 @@ class WarehouseService {
           otherSpecifications: true,
           ratePerSqft: true,
           photos: true,
+          photosWebp: true,
           warehouseType: true,
           zone: true,
           contactPerson: true,
@@ -149,18 +150,19 @@ class WarehouseService {
     ]);
 
     // Format the warehouse data
-    let formattedWarehouses = warehouses.map(w => {
-      let parsedPhotos = [];
-      if (w.photos) {
-        try {
-          parsedPhotos = JSON.parse(w.photos);
-          if (!Array.isArray(parsedPhotos)) {
-            parsedPhotos = [parsedPhotos];
-          }
-        } catch (error) {
-          parsedPhotos = [w.photos];
-        }
+    const parsePhotoField = (raw) => {
+      if (!raw) return [];
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        return [raw];
       }
+    };
+
+    let formattedWarehouses = warehouses.map(w => {
+      const parsedPhotos = parsePhotoField(w.photos);
+      const parsedPhotosWebp = parsePhotoField(w.photosWebp);
       return {
         id: w.id,
         address: w.address,
@@ -172,6 +174,7 @@ class WarehouseService {
         otherSpecifications: w.otherSpecifications,
         ratePerSqft: w.ratePerSqft,
         photos: parsedPhotos,
+        photosWebp: parsedPhotosWebp,
         warehouseType: w.warehouseType,
         zone: w.zone,
         contactPerson: w.contactPerson,

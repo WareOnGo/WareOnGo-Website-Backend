@@ -85,26 +85,22 @@ export async function getWarehouseById(req, res) {
       return res.status(404).json({ error: 'Warehouse not found' });
     }
 
-    // Parse photos JSON field to array format
-    let parsedPhotos = [];
-    if (warehouse.photos) {
-      // Check if it's already a valid JSON string
-      if (warehouse.photos.startsWith('[') || warehouse.photos.startsWith('{')) {
+    // Parse photos / photosWebp JSON field to array format
+    const parsePhotoField = (raw) => {
+      if (!raw) return [];
+      const trimmed = typeof raw === 'string' ? raw.trim() : raw;
+      if (typeof trimmed === 'string' && (trimmed.startsWith('[') || trimmed.startsWith('{'))) {
         try {
-          parsedPhotos = JSON.parse(warehouse.photos);
-          // Ensure it's always an array
-          if (!Array.isArray(parsedPhotos)) {
-            parsedPhotos = [parsedPhotos];
-          }
-        } catch (error) {
-          // If JSON parsing fails, treat as single photo string
-          parsedPhotos = [warehouse.photos];
+          const parsed = JSON.parse(trimmed);
+          return Array.isArray(parsed) ? parsed : [parsed];
+        } catch {
+          return [trimmed];
         }
-      } else {
-        // If it doesn't look like JSON, treat as single photo string
-        parsedPhotos = [warehouse.photos];
       }
-    }
+      return [trimmed];
+    };
+    const parsedPhotos = parsePhotoField(warehouse.photos);
+    const parsedPhotosWebp = parsePhotoField(warehouse.photosWebp);
 
     // Format response with parsed photos and related data (excluding contact info for privacy)
     const response = {
@@ -117,6 +113,7 @@ export async function getWarehouseById(req, res) {
       state: warehouse.state,
       postalCode: warehouse.postalCode,
       photos: parsedPhotos,
+      photosWebp: parsedPhotosWebp,
       warehouseType: warehouse.warehouseType,
       zone: warehouse.zone,
       compliances: warehouse.compliances,
