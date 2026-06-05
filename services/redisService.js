@@ -64,9 +64,9 @@ class RedisService {
     return await this.client.ping();
   }
 
-  scanIterator(options) {
+  async scanIterator(options) {
     if (!this.client || !this.isConnected) {
-      throw new Error('Redis client not connected');
+      await this.connect();
     }
     return this.client.scanIterator(options);
   }

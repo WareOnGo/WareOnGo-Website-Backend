@@ -246,15 +246,17 @@ class WarehouseService {
   }
 
   async clearWarehouseCache() {
-    const stream = redisService.scanIterator({
+    const stream = await redisService.scanIterator({
       TYPE: 'string',
       MATCH: 'warehouses:*',
       COUNT: 100
     });
 
     const keys = [];
-    for await (const key of stream) {
-      keys.push(key);
+    // node-redis v5 scanIterator yields batches (arrays of keys) per iteration;
+    // v4 yielded single keys. Handle both shapes.
+    for await (const batch of stream) {
+      keys.push(...(Array.isArray(batch) ? batch : [batch]));
     }
 
     if (keys.length > 0) {
