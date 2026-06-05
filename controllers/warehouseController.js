@@ -2,6 +2,11 @@ import prisma from '../models/prismaClient.js';
 import { sanitizeForJSON } from '../utils/serialize.js';
 import warehouseService from '../services/warehouseService.js';
 
+// Blur coordinates to 2 decimal places (~1.1 km) — enough to place a listing
+// in its micro-market without revealing the exact plot.
+const roundCoord = (value) =>
+  typeof value === 'number' ? Math.round(value * 100) / 100 : null;
+
 export async function getWarehouses(req, res) {
   try {
     // Pagination
@@ -45,6 +50,96 @@ export async function clearWarehouseCache(req, res) {
   }
 }
 
+export async function getWarehouseSpecifications(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ error: 'Invalid warehouse ID format' });
+    }
+
+    const warehouseId = parseInt(id);
+
+    // Explicit select whitelist — sensitive columns (owner/contact details,
+    // latitude/longitude, googleLocation, embedding, internal commercials like
+    // negotiated_rent) are never selected, so they can't leak via this endpoint.
+    const warehouse = await prisma.warehouse.findUnique({
+      where: {
+        id: warehouseId,
+        visibility: true,
+      },
+      select: {
+        id: true,
+        // Site
+        land_parcel_size: true,
+        builtup_area: true,
+        carpet_area: true,
+        setbackArea: true,
+        distance_from_highway: true,
+        nearest_transport: true,
+        ccRoads: true,
+        wallAndSecurityRoom: true,
+        // Structure
+        plinthHeightFt: true,
+        centreHeight: true,
+        flooringType: true,
+        floorStrengthPerSqm: true,
+        // Docking
+        gateSizeFt: true,
+        dockApronLengthFt: true,
+        dockDimension: true,
+        dockPlatformType: true,
+        canopyType: true,
+        otherDockingSpecs: true,
+        // Utilities & interiors
+        ventilationType: true,
+        ventilationAirChangesPerDay: true,
+        insulationPresent: true,
+        insulationType: true,
+        lightingDetails: true,
+        washroom_count: true,
+        // Fire & compliance
+        fire_exits: true,
+        fire_compliance_cert_type: true,
+        // Verification badge
+        wogVerified: true,
+        // Related spec table (1:1) — same whitelist principle; latitude,
+        // longitude and embedding are deliberately not selected.
+        warehouseData: {
+          select: {
+            fireNocAvailable: true,
+            fireSafetyMeasures: true,
+            landType: true,
+            approachRoadWidth: true,
+            dimensions: true,
+            parkingDockingSpace: true,
+            pollutionZone: true,
+            powerKva: true,
+            vaastuCompliance: true,
+          },
+        },
+      },
+    });
+
+    if (!warehouse) {
+      return res.status(404).json({ error: 'Warehouse not found' });
+    }
+
+    const { warehouseData, ...warehouseSpecs } = warehouse;
+
+    // Flatten the 1:1 relation into one specifications object.
+    const response = {
+      ...warehouseSpecs,
+      ...(warehouseData ?? {}),
+    };
+
+    res.status(200).json(sanitizeForJSON(response));
+  } catch (error) {
+    console.error('Error fetching warehouse specifications:', error);
+    res.status(500).json({ error: 'An error occurred while fetching warehouse specifications' });
+  }
+}
+
 export async function getWarehouseById(req, res) {
   try {
     const { id } = req.params;
@@ -62,13 +157,32 @@ export async function getWarehouseById(req, res) {
       return res.status(500).json({ error: 'Server misconfiguration: warehouse model not available' });
     }
 
-    // Query database for warehouse with related WarehouseData (only visible warehouses)
+    // Query database for warehouse with related WarehouseData (only visible
+    // warehouses). Strict select whitelist — owner/contact columns and other
+    // sensitive fields are never fetched from the DB, not just omitted from
+    // the response.
     const warehouse = await prisma.warehouse.findUnique({
       where: {
         id: warehouseId,
         visibility: true
       },
-      include: {
+      select: {
+        id: true,
+        address: true,
+        numberOfDocks: true,
+        totalSpaceSqft: true,
+        clearHeightFt: true,
+        city: true,
+        state: true,
+        postalCode: true,
+        photos: true,
+        photosWebp: true,
+        warehouseType: true,
+        zone: true,
+        compliances: true,
+        otherSpecifications: true,
+        ratePerSqft: true,
+        statusUpdatedAt: true,
         warehouseData: {
           select: {
             fireNocAvailable: true,
@@ -119,10 +233,15 @@ export async function getWarehouseById(req, res) {
       compliances: warehouse.compliances,
       otherSpecifications: warehouse.otherSpecifications,
       ratePerSqft: warehouse.ratePerSqft,
-      googleLocation: warehouse.googleLocation,
-      // Include WarehouseData fields if available
-      latitude: warehouse.warehouseData?.latitude || null,
-      longitude: warehouse.warehouseData?.longitude || null,
+      // Prisma @updatedAt (status_updated_at) — exposed as updatedAt so the
+      // frontend can emit honest sitemap <lastmod> and schema dateModified.
+      updatedAt: warehouse.statusUpdatedAt,
+      // googleLocation deliberately omitted — exact-pin URL is sensitive and
+      // unused by the frontend (the map geocodes from the address instead).
+      // Coordinates are rounded to 2 decimals (~1.1 km) so the micro-market is
+      // conveyed without exposing the exact plot.
+      latitude: roundCoord(warehouse.warehouseData?.latitude),
+      longitude: roundCoord(warehouse.warehouseData?.longitude),
       fireNocAvailable: warehouse.warehouseData?.fireNocAvailable || null,
       fireSafetyMeasures: warehouse.warehouseData?.fireSafetyMeasures || null
     };

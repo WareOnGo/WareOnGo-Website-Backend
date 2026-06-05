@@ -1,6 +1,11 @@
 import prisma from '../models/prismaClient.js';
 import redisService from './redisService.js';
 
+// Blur coordinates to 2 decimal places (~1.1 km) — enough to place a listing
+// in its micro-market without revealing the exact plot.
+const roundCoord = (value) =>
+  typeof value === 'number' ? Math.round(value * 100) / 100 : null;
+
 class WarehouseService {
   async getWarehouses(filters = {}, page = 1, pageSize = 10) {
     const skip = (page - 1) * pageSize;
@@ -134,8 +139,10 @@ class WarehouseService {
           photosWebp: true,
           warehouseType: true,
           zone: true,
-          contactPerson: true,
-          googleLocation: true,
+          statusUpdatedAt: true,
+          // contactPerson / googleLocation deliberately not selected — owner
+          // details and exact-pin URLs stay private (and neither is used by
+          // the frontend).
           warehouseData: {
             select: {
               fireNocAvailable: true,
@@ -177,10 +184,13 @@ class WarehouseService {
         photosWebp: parsedPhotosWebp,
         warehouseType: w.warehouseType,
         zone: w.zone,
-        contactPerson: w.contactPerson,
-        googleLocation: w.googleLocation,
-        latitude: w.warehouseData?.latitude,
-        longitude: w.warehouseData?.longitude,
+        // Prisma @updatedAt (status_updated_at) — exposed as updatedAt so the
+        // sitemap can emit honest <lastmod> values.
+        updatedAt: w.statusUpdatedAt,
+        // Coordinates blurred to 2 decimals (~1.1 km) — micro-market without
+        // the exact plot.
+        latitude: roundCoord(w.warehouseData?.latitude),
+        longitude: roundCoord(w.warehouseData?.longitude),
         fireNocAvailable: w.warehouseData?.fireNocAvailable,
         fireSafetyMeasures: w.warehouseData?.fireSafetyMeasures,
       };
