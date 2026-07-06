@@ -2,6 +2,7 @@ import prisma from '../models/prismaClient.js';
 import { isValidPhoneNumber } from '../utils/phone.js';
 import { sanitizeForJSON } from '../utils/serialize.js';
 import notificationService from '../utils/notificationService.js';
+import sheetsService from '../utils/sheetsService.js';
 
 export async function createCustomerRequest(req, res) {
   try {
@@ -44,6 +45,11 @@ export async function createCustomerRequest(req, res) {
         await notificationService.sendCustomerRequestNotification(created);
       } catch (error) {
         console.error(`Failed to send customer request notification for ID ${created.id}:`, error);
+      }
+      try {
+        await sheetsService.appendCustomerRequest(created);
+      } catch (error) {
+        console.error(`Failed to append customer request to sheet for ID ${created.id}:`, error);
       }
     });
 

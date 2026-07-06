@@ -139,3 +139,11 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 /generated/prisma
+
+# One-time data-fix / backfill scripts
+scripts/backfill_sheets.js
+scripts/fix_city_state_typos.cjs
+scripts/inspect_rows.cjs
+scripts/list_bad_rows.cjs
+scripts/pull_city_state.cjs
+scripts/verify_fixes.cjs

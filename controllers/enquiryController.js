@@ -2,6 +2,7 @@ import prisma from '../models/prismaClient.js';
 import { isValidPhoneNumber } from '../utils/phone.js';
 import { sanitizeForJSON } from '../utils/serialize.js';
 import notificationService from '../utils/notificationService.js';
+import sheetsService from '../utils/sheetsService.js';
 
 export async function createEnquiry(req, res) {
   try {
@@ -46,6 +47,11 @@ export async function createEnquiry(req, res) {
       } catch (error) {
         // Log error but don't affect the main response
         console.error(`Failed to send enquiry notification for ID ${created.id}:`, error);
+      }
+      try {
+        await sheetsService.appendEnquiry(created);
+      } catch (error) {
+        console.error(`Failed to append enquiry to sheet for ID ${created.id}:`, error);
       }
     });
 
