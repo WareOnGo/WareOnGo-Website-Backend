@@ -96,8 +96,9 @@ class WarehouseService {
     dbFilters.visibility = true;
 
     // Build cache key including filters AND space filters
+    // v3: response gained `micromarket` — v2 entries would serve it as undefined.
     const filterKey = JSON.stringify({ ...dbFilters, minSpace, maxSpace });
-    const cacheKey = `warehouses:v2:page:${page}:size:${pageSize}:filters:${filterKey}`;
+    const cacheKey = `warehouses:v3:page:${page}:size:${pageSize}:filters:${filterKey}`;
 
     // Try to get data from Redis cache first
     try {
@@ -139,6 +140,7 @@ class WarehouseService {
           photosWebp: true,
           warehouseType: true,
           zone: true,
+          micromarket: true,
           statusUpdatedAt: true,
           // contactPerson / googleLocation deliberately not selected — owner
           // details and exact-pin URLs stay private (and neither is used by
@@ -184,6 +186,9 @@ class WarehouseService {
         photosWebp: parsedPhotosWebp,
         warehouseType: w.warehouseType,
         zone: w.zone,
+        // Locality tags (String[]). Emitted raw — the frontend decides which
+        // values are page-worthy (see src/loaders/locationLoader.ts).
+        micromarket: Array.isArray(w.micromarket) ? w.micromarket : [],
         // Prisma @updatedAt (status_updated_at) — exposed as updatedAt so the
         // sitemap can emit honest <lastmod> values.
         updatedAt: w.statusUpdatedAt,
