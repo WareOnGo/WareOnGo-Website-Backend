@@ -84,6 +84,9 @@ model Warehouse {
   totalFloors                 String?
   hasBorewell                 Boolean?
   micromarket                 String[]             @default([])
+  handoverLeadUnit            HandoverLeadUnit?
+  handoverLeadValue           Int?
+  handoverType                HandoverType?
   warehouseData               WarehouseData?
   WarehouseVisitNote          WarehouseVisitNote[]
 
@@ -314,11 +317,11 @@ model Employee {
 }
 
 model StagedWarehouse {
-  id                          String        @id
-  reviewStatus                StagingStatus @default(PENDING)
+  id                          String            @id
+  reviewStatus                StagingStatus     @default(PENDING)
   source                      String
   submittedBy                 String
-  submittedAt                 DateTime      @default(now())
+  submittedAt                 DateTime          @default(now())
   reviewedBy                  String?
   reviewedAt                  DateTime?
   rejectionReason             String?
@@ -386,8 +389,8 @@ model StagedWarehouse {
   centreHeight                String?
   listing_type                String?
   status                      String?
-  handoverDate                DateTime?     @db.Date
-  lockInDate                  DateTime?     @db.Date
+  handoverDate                DateTime?         @db.Date
+  lockInDate                  DateTime?         @db.Date
   cam                         String?
   chargeableArea              Int?
   latitude                    Float?
@@ -408,6 +411,9 @@ model StagedWarehouse {
   serviceLiftCount            String?
   totalFloors                 String?
   hasBorewell                 Boolean?
+  handoverLeadUnit            HandoverLeadUnit?
+  handoverLeadValue           Int?
+  handoverType                HandoverType?
 
   @@index([reviewStatus, submittedAt])
 }
@@ -426,6 +432,8 @@ model Ticket {
   updatedAt        DateTime
   approvedAmount   Decimal?      @db.Decimal(12, 2)
   expenseDate      DateTime?     @db.Date
+  clientName       String?
+  dealName         String?
   Attachment       Attachment[]
   Employee         Employee      @relation(fields: [submittedByEmpID], references: [empID])
   TicketEvent      TicketEvent[]
@@ -586,4 +594,60 @@ enum TicketStatus {
   CLEARED
   REJECTED
   CANCELLED
+}
+
+enum HandoverLeadUnit {
+  DAYS
+  WEEKS
+  MONTHS
+}
+
+enum HandoverType {
+  FIXED
+  VARIABLE
+}
+
+/// CMS-managed warehousing guides. Rendered by the public site at
+/// /guides/{slug}; the build reads PUBLISHED rows and writes
+/// src/data/guides.generated.ts (see scripts/generate-guides.mjs).
+///
+/// Field names track the Article JSON-LD they feed, so the SEO/GEO contract
+/// stays legible from the schema alone.
+model Guide {
+  id            Int         @id @default(autoincrement())
+  slug          String      @unique
+  /// On-page H1.
+  title         String
+  /// <title> tag.
+  seoTitle      String
+  /// Meta description + Article.description.
+  description   String
+  /// Direct-answer "In short" callout — the speakable GEO block answer
+  /// engines extract first. Rendered at #guide-summary.
+  summary       String
+  /// Article.keywords, joined comma-separated at render.
+  keywords      String[]    @default([])
+  /// GuideBlock[] — discriminated union on `kind`: h2/h3/p/ul/ol/table.
+  blocks        Json
+  /// GuideFaq[] — {q,a}; drives both the visible accordion and FAQPage LD,
+  /// which must stay identical for the schema to validate.
+  faqs          Json
+  /// Slugs of related guides, rendered as cross-links.
+  related       String[]    @default([])
+  /// Article.datePublished. Falls back to dateModified when absent.
+  datePublished DateTime?   @db.Date
+  /// Article.dateModified, and the "Updated" line on the page.
+  dateModified  DateTime    @db.Date
+  /// Position in the /guides ItemList LD and index page.
+  sortOrder     Int         @default(0)
+  status        GuideStatus @default(DRAFT)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([status, sortOrder])
+}
+
+enum GuideStatus {
+  DRAFT
+  PUBLISHED
 }

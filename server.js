@@ -37,8 +37,10 @@ import authRoutes from './routes/auth.js';
 import warehouseRoutes from './routes/warehouseRoutes.js';
 import cacheRoutes from './routes/cacheRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
+import guideRoutes from './routes/guideRoutes.js';
 
 app.use('/health', healthRoutes);
+app.use('/guides', guideRoutes);
 app.use('/enquiries', enquiryRoutes);
 app.use('/customer-requests', customerRequestRoutes);
 app.use('/api/auth', authRoutes);
