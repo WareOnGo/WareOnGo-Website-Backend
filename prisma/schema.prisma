@@ -82,11 +82,11 @@ model Warehouse {
   passengerLiftCount          String?
   serviceLiftCount            String?
   totalFloors                 String?
-  hasBorewell                 Boolean?
   micromarket                 String[]             @default([])
   handoverLeadUnit            HandoverLeadUnit?
   handoverLeadValue           Int?
   handoverType                HandoverType?
+  waterSupply                 WaterSupply?
   warehouseData               WarehouseData?
   WarehouseVisitNote          WarehouseVisitNote[]
 
@@ -410,10 +410,10 @@ model StagedWarehouse {
   passengerLiftCount          String?
   serviceLiftCount            String?
   totalFloors                 String?
-  hasBorewell                 Boolean?
   handoverLeadUnit            HandoverLeadUnit?
   handoverLeadValue           Int?
   handoverType                HandoverType?
+  waterSupply                 WaterSupply?
 
   @@index([reviewStatus, submittedAt])
 }
@@ -575,6 +575,58 @@ model task {
   @@index([sender_number, done])
 }
 
+/// CMS-managed warehousing guides. Rendered by the public site at
+/// /guides/{slug}; the build reads PUBLISHED rows and writes
+/// src/data/guides.generated.ts (see scripts/generate-guides.mjs).
+///
+/// Field names track the Article JSON-LD they feed, so the SEO/GEO contract
+/// stays legible from the schema alone.
+model Guide {
+  id              Int         @id @default(autoincrement())
+  slug            String      @unique
+  /// On-page H1.
+  title           String
+  /// <title> tag.
+  seoTitle        String
+  /// Meta description + Article.description.
+  description     String
+  /// Direct-answer "In short" callout — the speakable GEO block answer
+  /// engines extract first. Rendered at #guide-summary.
+  summary         String
+  /// Article.keywords, joined comma-separated at render.
+  keywords        String[]    @default([])
+  /// GuideBlock[] — discriminated union on `kind`: h2/h3/p/ul/ol/table.
+  blocks          Json
+  /// GuideFaq[] — {q,a}; drives both the visible accordion and FAQPage LD,
+  /// which must stay identical for the schema to validate.
+  faqs            Json
+  /// Slugs of related guides, rendered as cross-links.
+  related         String[]    @default([])
+  /// Optional byline. Shown under the H1 and emitted as Article.author (a
+  /// Person); null falls back to the WareOnGo organisation, which is what every
+  /// guide did before this column existed.
+  author          String?
+  /// Article.datePublished. Falls back to dateModified when absent.
+  datePublished   DateTime?   @db.Date
+  /// Article.dateModified, and the "Updated" line on the page.
+  dateModified    DateTime    @db.Date
+  /// Position in the /guides ItemList LD and index page.
+  sortOrder       Int         @default(0)
+  status          GuideStatus @default(DRAFT)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  /// When that snapshot was taken. Records a deploy being *triggered*, not a
+  /// build succeeding — the CMS has no way to observe the build's outcome.
+  deployedAt      DateTime?
+  /// Snapshot of the content fields as of the last deploy the CMS triggered.
+  /// The CMS compares the live row against this to tell whether a guide has
+  /// edits that haven't reached the site yet ("Staged"), and to offer a revert.
+  /// Null means the guide has never been included in a deploy.
+  deployedContent Json?
+
+  @@index([status, sortOrder])
+}
+
 enum AttachmentKind {
   IMAGE
   DOCUMENT
@@ -607,47 +659,15 @@ enum HandoverType {
   VARIABLE
 }
 
-/// CMS-managed warehousing guides. Rendered by the public site at
-/// /guides/{slug}; the build reads PUBLISHED rows and writes
-/// src/data/guides.generated.ts (see scripts/generate-guides.mjs).
-///
-/// Field names track the Article JSON-LD they feed, so the SEO/GEO contract
-/// stays legible from the schema alone.
-model Guide {
-  id            Int         @id @default(autoincrement())
-  slug          String      @unique
-  /// On-page H1.
-  title         String
-  /// <title> tag.
-  seoTitle      String
-  /// Meta description + Article.description.
-  description   String
-  /// Direct-answer "In short" callout — the speakable GEO block answer
-  /// engines extract first. Rendered at #guide-summary.
-  summary       String
-  /// Article.keywords, joined comma-separated at render.
-  keywords      String[]    @default([])
-  /// GuideBlock[] — discriminated union on `kind`: h2/h3/p/ul/ol/table.
-  blocks        Json
-  /// GuideFaq[] — {q,a}; drives both the visible accordion and FAQPage LD,
-  /// which must stay identical for the schema to validate.
-  faqs          Json
-  /// Slugs of related guides, rendered as cross-links.
-  related       String[]    @default([])
-  /// Article.datePublished. Falls back to dateModified when absent.
-  datePublished DateTime?   @db.Date
-  /// Article.dateModified, and the "Updated" line on the page.
-  dateModified  DateTime    @db.Date
-  /// Position in the /guides ItemList LD and index page.
-  sortOrder     Int         @default(0)
-  status        GuideStatus @default(DRAFT)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  @@index([status, sortOrder])
-}
-
 enum GuideStatus {
   DRAFT
   PUBLISHED
+}
+
+enum WaterSupply {
+  NONE
+  BOREWELL
+  PIPELINE
+  TANKER
+  OTHERS
 }
