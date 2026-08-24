@@ -1,17 +1,17 @@
-// One-time port of the hardcoded guides in the website repo
-// (src/data/guides.ts) into the Guide table, which is the source of truth from
+// One-time port of the hardcoded blogs in the website repo
+// (src/data/blogs.ts) into the Blog table, which is the source of truth from
 // here on. Kept in the repo so the migration is auditable and re-runnable.
 //
 // Idempotent: upserts on slug, so re-running syncs rather than duplicating.
 //
 // Usage:
-//   node scripts/seed-guides.mjs --file /path/to/guides.json
+//   node scripts/seed-blogs.mjs --file /path/to/blogs.json
 //
-// Produce guides.json from the website repo with:
+// Produce blogs.json from the website repo with:
 //   node -e "const e=require('esbuild'),f=require('fs');f.writeFileSync('/tmp/g.mjs',
-//     e.transformSync(f.readFileSync('src/data/guides.ts','utf8'),{loader:'ts'}).code)"
-//   node --input-type=module -e "import {guides} from '/tmp/g.mjs';
-//     import fs from 'node:fs';fs.writeFileSync('/tmp/guides.json',JSON.stringify(guides))"
+//     e.transformSync(f.readFileSync('src/data/blogs.ts','utf8'),{loader:'ts'}).code)"
+//   node --input-type=module -e "import {blogs} from '/tmp/g.mjs';
+//     import fs from 'node:fs';fs.writeFileSync('/tmp/blogs.json',JSON.stringify(blogs))"
 
 import fs from 'node:fs';
 import { PrismaClient } from '@prisma/client';
@@ -20,7 +20,7 @@ const prisma = new PrismaClient();
 
 const fileArg = process.argv.indexOf('--file');
 if (fileArg === -1 || !process.argv[fileArg + 1]) {
-  console.error('usage: node scripts/seed-guides.mjs --file <guides.json>');
+  console.error('usage: node scripts/seed-blogs.mjs --file <blogs.json>');
   process.exit(1);
 }
 
@@ -35,11 +35,11 @@ const asDate = (s) => {
 };
 
 async function main() {
-  const guides = JSON.parse(fs.readFileSync(process.argv[fileArg + 1], 'utf8'));
-  if (!Array.isArray(guides) || guides.length === 0) throw new Error('no guides in file');
+  const blogs = JSON.parse(fs.readFileSync(process.argv[fileArg + 1], 'utf8'));
+  if (!Array.isArray(blogs) || blogs.length === 0) throw new Error('no blogs in file');
 
-  for (const [i, g] of guides.entries()) {
-    // Array order in the TS file drove the /guides ItemList JSON-LD positions,
+  for (const [i, g] of blogs.entries()) {
+    // Array order in the TS file drove the /blogs ItemList JSON-LD positions,
     // so it has to survive the move to a table.
     const row = {
       slug: g.slug,
@@ -56,17 +56,17 @@ async function main() {
       sortOrder: i,
       status: 'PUBLISHED',
     };
-    await prisma.guide.upsert({ where: { slug: g.slug }, create: row, update: row });
+    await prisma.blog.upsert({ where: { slug: g.slug }, create: row, update: row });
     console.log(`  upserted ${g.slug} (sortOrder=${i}, ${g.blocks.length} blocks, ${g.faqs.length} faqs)`);
   }
 
-  const total = await prisma.guide.count();
-  console.log(`[seed-guides] ${guides.length} guides seeded; table now holds ${total}`);
+  const total = await prisma.blog.count();
+  console.log(`[seed-blogs] ${blogs.length} blogs seeded; table now holds ${total}`);
 }
 
 main()
   .catch((err) => {
-    console.error('[seed-guides] failed:', err);
+    console.error('[seed-blogs] failed:', err);
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());

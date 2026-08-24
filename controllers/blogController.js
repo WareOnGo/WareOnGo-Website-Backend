@@ -6,7 +6,7 @@ import prisma from '../models/prismaClient.js';
 // across builds or Google sees the content change date every deploy.
 const asIsoDate = (d) => (d ? d.toISOString().slice(0, 10) : undefined);
 
-// Shaped to match the public site's `Guide` interface exactly, so the renderer
+// Shaped to match the public site's `Blog` interface exactly, so the renderer
 // and its Article/FAQPage JSON-LD are unchanged by the move to the DB.
 const toApiShape = (g) => ({
   slug: g.slug,
@@ -25,31 +25,31 @@ const toApiShape = (g) => ({
   related: g.related,
 });
 
-// Read at build time by the website's scripts/generate-guides.mjs. Only
+// Read at build time by the website's scripts/generate-blogs.mjs. Only
 // PUBLISHED rows are exposed — drafts must never reach the static site.
-// sortOrder drives the /guides ItemList JSON-LD positions.
-export async function getGuides(req, res) {
+// sortOrder drives the /blogs ItemList JSON-LD positions.
+export async function getBlogs(req, res) {
   try {
-    const guides = await prisma.guide.findMany({
+    const blogs = await prisma.blog.findMany({
       where: { status: 'PUBLISHED' },
       orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
     });
-    res.status(200).json({ data: guides.map(toApiShape) });
+    res.status(200).json({ data: blogs.map(toApiShape) });
   } catch (error) {
-    console.error('Error fetching guides:', error);
-    res.status(500).json({ error: 'An error occurred while fetching guides.' });
+    console.error('Error fetching blogs:', error);
+    res.status(500).json({ error: 'An error occurred while fetching blogs.' });
   }
 }
 
-export async function getGuideBySlug(req, res) {
+export async function getBlogBySlug(req, res) {
   try {
-    const guide = await prisma.guide.findFirst({
+    const blog = await prisma.blog.findFirst({
       where: { slug: req.params.slug, status: 'PUBLISHED' },
     });
-    if (!guide) return res.status(404).json({ error: 'Guide not found.' });
-    res.status(200).json({ data: toApiShape(guide) });
+    if (!blog) return res.status(404).json({ error: 'Blog not found.' });
+    res.status(200).json({ data: toApiShape(blog) });
   } catch (error) {
-    console.error('Error fetching guide:', error);
-    res.status(500).json({ error: 'An error occurred while fetching the guide.' });
+    console.error('Error fetching blog:', error);
+    res.status(500).json({ error: 'An error occurred while fetching the blog.' });
   }
 }

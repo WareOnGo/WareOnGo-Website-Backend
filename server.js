@@ -37,10 +37,14 @@ import authRoutes from './routes/auth.js';
 import warehouseRoutes from './routes/warehouseRoutes.js';
 import cacheRoutes from './routes/cacheRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
-import guideRoutes from './routes/guideRoutes.js';
+import blogRoutes from './routes/blogRoutes.js';
 
 app.use('/health', healthRoutes);
-app.use('/guides', guideRoutes);
+app.use('/blogs', blogRoutes);
+// Legacy alias. The website build and any cached client still ask for /guides;
+// keeping both mounted means the rename can't half-land and break a deploy.
+// Safe to delete once nothing requests it — check the access logs first.
+app.use('/guides', blogRoutes);
 app.use('/enquiries', enquiryRoutes);
 app.use('/customer-requests', customerRequestRoutes);
 app.use('/api/auth', authRoutes);
