@@ -38,6 +38,8 @@ import warehouseRoutes from './routes/warehouseRoutes.js';
 import cacheRoutes from './routes/cacheRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
 import blogRoutes from './routes/blogRoutes.js';
+import micromarketRoutes from './routes/micromarketRoutes.js';
+import micromarketDataRoutes from './routes/micromarketDataRoutes.js';
 
 app.use('/health', healthRoutes);
 app.use('/blogs', blogRoutes);
@@ -45,6 +47,14 @@ app.use('/blogs', blogRoutes);
 // keeping both mounted means the rename can't half-land and break a deploy.
 // Safe to delete once nothing requests it — check the access logs first.
 app.use('/guides', blogRoutes);
+// CMS-authored editorial content for micromarket listing pages. Read only at
+// build time by the website; a micromarket with no row here keeps rendering its
+// plain listing grid.
+app.use('/micromarket-pages', micromarketRoutes);
+// Derived micromarket data — which micromarkets exist, which earn a page, and
+// every figure computed from their inventory. The single source of truth for
+// the website build and the CMS alike; see services/micromarketService.js.
+app.use('/micromarkets', micromarketDataRoutes);
 app.use('/enquiries', enquiryRoutes);
 app.use('/customer-requests', customerRequestRoutes);
 app.use('/api/auth', authRoutes);

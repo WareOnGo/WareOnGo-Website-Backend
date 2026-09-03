@@ -30,10 +30,10 @@ model Warehouse {
   uploadedBy                  String
   isBroker                    String?
   photos                      String?
-  createdAt                   DateTime?            @default(now())
-  statusUpdatedAt             DateTime?            @updatedAt @map("status_updated_at")
-  id                          Int                  @id @default(autoincrement())
-  visibility                  Boolean?             @default(false)
+  createdAt                   DateTime?             @default(now())
+  statusUpdatedAt             DateTime?             @updatedAt @map("status_updated_at")
+  id                          Int                   @id @default(autoincrement())
+  visibility                  Boolean?              @default(false)
   media                       Json?
   alt_phone_number            String?
   land_parcel_size            String?
@@ -71,8 +71,8 @@ model Warehouse {
   centreHeight                String?
   listing_type                String?
   photosWebp                  String?
-  handoverDate                DateTime?            @db.Date
-  lockInDate                  DateTime?            @db.Date
+  handoverDate                DateTime?             @db.Date
+  lockInDate                  DateTime?             @db.Date
   status                      String?
   cam                         String?
   chargeableArea              Int?
@@ -82,14 +82,15 @@ model Warehouse {
   passengerLiftCount          String?
   serviceLiftCount            String?
   totalFloors                 String?
-  micromarket                 String[]             @default([])
+  micromarket                 String[]              @default([])
   handoverLeadUnit            HandoverLeadUnit?
   handoverLeadValue           Int?
   handoverType                HandoverType?
   waterSupply                 WaterSupply?
-  suitableFor                 String[]             @default([])
+  suitableFor                 String[]              @default([])
   warehouseData               WarehouseData?
   WarehouseVisitNote          WarehouseVisitNote[]
+  warehouse_proximity         warehouse_proximity[]
 
   @@index([address(ops: raw("gin_trgm_ops"))], map: "idx_warehouse_address_trgm", type: Gin)
   @@index([clearHeightFt], map: "idx_warehouse_clear_height")
@@ -632,6 +633,83 @@ model Blog {
   @@index([status, sortOrder])
 }
 
+/// CMS-authored editorial content for one micromarket listing page
+/// (/listings/city/{citySlug}/{slug}). Deliberately optional: a micromarket
+/// with no PUBLISHED row here keeps rendering the plain listing grid it renders
+/// today, and one with a row renders the full editorial template over the same
+/// live inventory. That is the whole if/else — presence of a row is the switch.
+///
+/// Only prose, images and FAQs live here. Every number on the page (listing
+/// count, rent and size ranges, construction mix, compliance counts, the peer
+/// rent chart) is computed from live listings at build time, so this table can
+/// never contradict inventory. Authored copy must therefore avoid hard numbers
+/// it does not own.
+model MicromarketPage {
+  id               Int                   @id @default(autoincrement())
+  /// The {city} URL segment — a city page slug (locationLoader.ts `slugify`).
+  citySlug         String
+  /// The {micromarket} URL segment (locationLoader.ts `slugifyMicromarket`).
+  slug             String
+  /// Display name, for the CMS list only. The site uses the canonical name it
+  /// derives from listings, so a stale value here can never reach a page.
+  name             String
+  /// <title> tag.
+  seoTitle         String
+  /// Meta description + CollectionPage.description.
+  metaDescription  String
+  /// On-page H1.
+  h1               String
+  /// Small uppercase line above the H1. Null falls back to a derived default.
+  heroEyebrow      String?
+  /// Lead paragraph. The one required prose slot — without it there is no page.
+  heroProse        String
+  /// {url, alt, width, height} or null. Uploaded through the CMS to R2.
+  heroImage        Json?
+  /// Section headings. Null falls back to a default built from the place name.
+  marketHeading    String?
+  marketProse      String?
+  marketImage      Json?
+  rentsHeading     String?
+  rentsProse       String?
+  specHeading      String?
+  specProse        String?
+  inventoryHeading String?
+  /// MicromarketFaq[] — {q,a}. Drives both the visible accordion and the
+  /// FAQPage LD, which must stay identical for the schema to validate.
+  faqs             Json
+  /// Slugs of blogs to cross-link in the page footer ("Editorial" row).
+  relatedBlogs     String[]              @default([])
+  /// Manual corrections to the figures the website derives from live listings.
+  ///
+  /// Optional and partial: whatever is set here wins, everything else stays
+  /// computed. It exists because the listings are free-text in places — a rate
+  /// typed as an annual figure, a clear height recorded in metres — and an
+  /// editor who knows the belt can correct one number without anyone having to
+  /// fix every row first.
+  ///
+  /// Deliberately cannot override the listing count, the construction and
+  /// flooring mix, or the peer chart. The count has to match the grid rendered
+  /// underneath it on the same page; the mixes are derived label-by-label from
+  /// the same rows the grid shows; and a peer's median belongs to that peer's
+  /// own page, where it is computed the same way.
+  ///
+  /// Shape (all keys optional), validated by the CMS:
+  ///   { rent: {min,median,max}, size: {min,max},
+  ///     clearHeight: {min,median,max}, docksMedian, fireNoc, commercialClu }
+  statOverrides    Json?
+  status           MicromarketPageStatus @default(DRAFT)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  /// Snapshot of the content fields as of the last deploy the CMS triggered,
+  /// and when that was. Same contract as Blog.deployedContent: it records a
+  /// deploy being *triggered*, not a build succeeding.
+  deployedAt       DateTime?
+  deployedContent  Json?
+
+  @@unique([citySlug, slug])
+  @@index([status])
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model labeled_warehouse_images {
   id             Int        @id @default(autoincrement())
@@ -659,11 +737,13 @@ model osm_poi {
   sourceFile String?
   importedAt DateTime                  @default(now())
   geog       Unsupported("geography")? @default(dbgenerated("\nCASE\n    WHEN ((lng IS NOT NULL) AND (lat IS NOT NULL)) THEN (st_setsrid(st_makepoint(lng, lat), 4326))::geography\n    ELSE NULL::geography\nEND"))
+  lastSeenAt DateTime                  @default(now())
 
   @@unique([osmType, osmId, category])
   @@index([category])
   @@index([geog], map: "osm_poi_geog_gist", type: Gist)
   @@index([lat, lng])
+  @@index([lastSeenAt])
 }
 
 model point_of_interest {
@@ -691,6 +771,81 @@ model spatial_ref_sys {
   auth_srid Int?
   srtext    String? @db.VarChar(2048)
   proj4text String? @db.VarChar(2048)
+}
+
+model osm_highway {
+  id         Int                       @id @default(autoincrement())
+  osmType    String                    @db.Char(1)
+  osmId      BigInt
+  ref        String?
+  highway    String
+  name       String?
+  tags       Json?
+  sourceFile String?
+  importedAt DateTime                  @default(now())
+  lastSeenAt DateTime                  @default(now())
+  geog       Unsupported("geography")?
+  refs       String[]                  @default([])
+
+  @@unique([osmType, osmId])
+  @@index([geog], map: "osm_highway_geog_gist", type: Gist)
+  @@index([highway])
+  @@index([lastSeenAt])
+  @@index([ref])
+  @@index([refs], type: Gin)
+}
+
+model osm_ingest_tile {
+  id           Int       @id @default(autoincrement())
+  tileKey      String
+  category     String
+  south        Float
+  west         Float
+  north        Float
+  east         Float
+  status       String    @default("pending")
+  elementCount Int       @default(0)
+  storedCount  Int       @default(0)
+  attempts     Int       @default(0)
+  lastError    String?
+  queryHash    String?
+  durationMs   Int?
+  bytes        Int?
+  fetchedAt    DateTime?
+  updatedAt    DateTime
+
+  @@unique([tileKey, category])
+  @@index([category, status])
+  @@index([status])
+}
+
+model warehouse_proximity {
+  id              Int       @id @default(autoincrement())
+  warehouseId     Int
+  category        String
+  status          String    @default("OK")
+  landmarkName    String?
+  poiSource       String?
+  poiId           String?
+  poiLat          Float?
+  poiLng          Float?
+  roadKm          Float?
+  driveMinutes    Int?
+  provider        String?
+  profile         String?
+  candidates      Int?
+  warnings        String[]  @default([])
+  attempts        Int       @default(1)
+  lastError       String?
+  computedAt      DateTime  @default(now())
+  computedFromLat Float?
+  computedFromLng Float?
+  poiWatermark    DateTime?
+  Warehouse       Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, category])
+  @@index([category, status])
+  @@index([computedAt])
 }
 
 enum AttachmentKind {
@@ -726,6 +881,11 @@ enum HandoverType {
 }
 
 enum BlogStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum MicromarketPageStatus {
   DRAFT
   PUBLISHED
 }

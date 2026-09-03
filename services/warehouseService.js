@@ -97,8 +97,9 @@ class WarehouseService {
 
     // Build cache key including filters AND space filters
     // v3: response gained `micromarket` — v2 entries would serve it as undefined.
+    // v4: gained `numberOfDocks` and `flooringType`, for the same reason.
     const filterKey = JSON.stringify({ ...dbFilters, minSpace, maxSpace });
-    const cacheKey = `warehouses:v3:page:${page}:size:${pageSize}:filters:${filterKey}`;
+    const cacheKey = `warehouses:v4:page:${page}:size:${pageSize}:filters:${filterKey}`;
 
     // Try to get data from Redis cache first
     try {
@@ -142,6 +143,10 @@ class WarehouseService {
           zone: true,
           micromarket: true,
           statusUpdatedAt: true,
+          // Feed the micromarket pages' specification table. Both are free text
+          // ("8", "8-10 docks", "VDF"), so the frontend parses defensively.
+          numberOfDocks: true,
+          flooringType: true,
           // contactPerson / googleLocation deliberately not selected — owner
           // details and exact-pin URLs stay private (and neither is used by
           // the frontend).
@@ -186,6 +191,8 @@ class WarehouseService {
         photosWebp: parsedPhotosWebp,
         warehouseType: w.warehouseType,
         zone: w.zone,
+        numberOfDocks: w.numberOfDocks,
+        flooringType: w.flooringType,
         // Locality tags (String[]). Emitted raw — the frontend decides which
         // values are page-worthy (see src/loaders/locationLoader.ts).
         micromarket: Array.isArray(w.micromarket) ? w.micromarket : [],
