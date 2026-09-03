@@ -86,6 +86,47 @@ const firstNumber = (raw) => {
 };
 
 /**
+ * The ceiling on a believable per-sq-ft rate.
+ *
+ * Warehouse rent in this market is tens of rupees a square foot. Above this the
+ * cell holds a monthly total or a typo, and the listing contributes no rate
+ * rather than a guess.
+ *
+ * Mirrored as RATE_CEILING in wareongo-website src/services/warehouseAPI.ts,
+ * which gates the figure on a listing card the same way. Change both together.
+ */
+export const RATE_CEILING = 500;
+
+/**
+ * A believable per-sq-ft rate out of the free-text column, or null.
+ *
+ * firstNumber is not enough here, and the failure was live: it reads the "1" out
+ * of "1st floor-150 sft, 2nd floor-120 sft" and out of "1,10,000 per month", so
+ * nine of the sixty-three micromarkets that earn a page reported a rent range
+ * starting at ₹1. The public page only renders that range once an editor
+ * publishes content for it, but the CMS shows an editor the computed figure
+ * straight away, which is where a ₹1 floor was being read.
+ *
+ * Ordinals, comma-grouped totals, lakh/crore figures and dates are therefore
+ * dropped before the first in-band number is taken. Heights and docks keep
+ * using firstNumber — none of these patterns show up in those columns.
+ */
+const rateNumber = (raw) => {
+  if (!raw) return null;
+  const text = String(raw)
+    .replace(/\b\d+\s*(?:st|nd|rd|th)\b/gi, ' ')
+    .replace(/\b\d+(?:[.,]\d+)?\s*(?:lac|lakh|lakhs|lacs|cr|crore|crores)\b/gi, ' ')
+    .replace(/\b\d{1,3}(?:,\d{2,3})+\b/g, ' ')
+    .replace(/\b\d{1,2}\s*[-/]\s*\d{1,2}\s*[-/]\s*\d{2,4}\b/g, ' ');
+  const matches = text.match(/\d+(?:\.\d+)?/g) ?? [];
+  for (const m of matches) {
+    const n = Number(m);
+    if (Number.isFinite(n) && n > 0 && n <= RATE_CEILING) return n;
+  }
+  return null;
+};
+
+/**
  * Land, open plots and build-to-suit sites. They stay in the listing count and
  * in the grid — a tenant looking for a BTS site should find it — and are out of
  * every computed figure, because they have no clear height, no docks and often
@@ -162,7 +203,7 @@ function statsFor(rows) {
   return {
     listings: rows.length,
     measured: built.length,
-    rent: spread(built.map((r) => firstNumber(r.ratePerSqft)).filter((n) => n !== null && n > 0)),
+    rent: spread(built.map((r) => rateNumber(r.ratePerSqft)).filter((n) => n !== null)),
     size: spread(built.map((r) => firstSize(r.totalSpaceSqft)).filter((n) => n !== null)),
     clearHeight: spread(built.map((r) => firstNumber(r.clearHeightFt)).filter((n) => n !== null && n > 0)),
     docksMedian: (() => {
@@ -187,7 +228,8 @@ function statsFor(rows) {
 //   v1: first release
 //   v2: gained listingIds
 //   v3: gained peers
-const CACHE_KEY = 'micromarkets:v3';
+//   v4: rents parsed by rateNumber, so the values themselves move
+const CACHE_KEY = 'micromarkets:v4';
 const CACHE_TTL_SECONDS = 600;
 
 class MicromarketService {
