@@ -40,6 +40,8 @@ import healthRoutes from './routes/healthRoutes.js';
 import blogRoutes from './routes/blogRoutes.js';
 import micromarketRoutes from './routes/micromarketRoutes.js';
 import micromarketDataRoutes from './routes/micromarketDataRoutes.js';
+import { createWebpRouter } from './routes/webpRoutes.js';
+import { warehouseWebpJob, webpConfigured } from './services/warehouseWebpService.js';
 
 app.use('/health', healthRoutes);
 app.use('/blogs', blogRoutes);
@@ -60,6 +62,7 @@ app.use('/customer-requests', customerRequestRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/warehouses', warehouseRoutes);
 app.use('/cache', cacheRoutes);
+app.use('/maintenance/webp', createWebpRouter({ job: warehouseWebpJob, configured: webpConfigured }));
 
 // Export the app for tests
 export default app;

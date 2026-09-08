@@ -9,6 +9,7 @@
     "start": "node server.js",
     "test": "node tests/enquiry-notification.test.js",
     "test:unit": "node tests/enquiry-notification.test.js",
+    "test:webp": "node tests/webp/run.mjs",
     "test:customer-notifications": "node --experimental-vm-modules node_modules/.bin/jest tests/customer-request-notification.test.js --verbose",
     "test:integration-notifications": "node --experimental-vm-modules node_modules/.bin/jest tests/integration-notification.test.js --verbose",
     "test:enquiry": "node ./scripts/test_enquiry.js",
