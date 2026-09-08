@@ -10,7 +10,7 @@ import prisma from '../models/prismaClient.js';
 import { compressionConfig, createPhotoStore, compressWarehousePhotos, warehousePhotoRepository } from '../services/webpCompression.js';
 
 export function parseArgs(args) {
-  const options = { concurrency: 2, startId: 0, visibleOnly: false };
+  const options = { concurrency: 1, startId: 0, visibleOnly: false };
   const numeric = { warehouse: 'warehouseId', limit: 'limit', 'start-id': 'startId', concurrency: 'concurrency' };
   for (const arg of args) {
     if (arg === '--dry-run') options.dryRun = true;

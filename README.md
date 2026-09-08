@@ -90,7 +90,8 @@ return `401`; missing configuration or an unavailable job store returns `503`.
 The original CMS deploy-hook bearer credential remains unchanged.
 
 POST returns `202` with `{ status: "accepted", jobId }` immediately after Redis
-records the job. The long-running Express process then compresses photos.
+records the job. The Express process coordinates the sweep; a short-lived child
+process converts each image, and then exits to release its native memory.
 Overlapping requests receive `{ status: "already_running", jobId }`, including
 across instances during a rolling deployment. GET reports `idle`, `queued`,
 `running`, `succeeded`, `partial`, `failed` or `interrupted`, with progress counts
@@ -98,12 +99,35 @@ and timestamps when available. Completion summaries also appear in Render's
 `[warehouse-webp]` logs. An accepted request does not guarantee completion.
 
 The sweep covers visible warehouse listings, reuses existing nonempty objects
-under R2's `webp/` prefix, and uploads missing WebPs (1280px maximum width,
+under R2's `webp/` prefix, and uploads missing WebPs (1280px maximum dimension,
 quality 75 by default). It reconstructs `photosWebp` from current original
 photos, preserving null slots and skipping videos, documents and foreign hosts.
 Concurrent photo edits cause that row's update to be skipped and retried on the
 next run. Original photos are retained. Downloads have a 30-second timeout and
-20MB cap; conversion has a 40-million-pixel cap and runs two photos at a time.
+20MB cap. Originals stream to temporary files, rather than accumulating in API
+memory. Conversion runs **one photo at a time**, with a 16-million-pixel input
+cap, one Sharp thread and no Sharp operation cache. Each decoder has a 64 MiB
+JavaScript heap and a 30-second wall timeout. Its process exits after one image,
+releasing native allocations and fragmentation; temporary files are removed
+on success, failure or cancellation. Only the small finished WebP is read into
+the API process for upload. The R2 originals and existing WebPs remain intact.
+
+Memory checks reserve headroom for API traffic. When container metrics are
+available, the entire container's working set is checked against its actual
+limit. Otherwise the API/child RSS estimate uses a 512 MiB budget. A worker
+exceeding 160 MiB RSS is terminated and that photo is retried on another day.
+Insufficient starting headroom, or reaching 75% container usage during conversion,
+pauses the sweep as `partial` with `reason: "memory_pressure"`, preserving the
+last completed warehouse cursor. These checks are sampled, not OS-enforced
+limits: they cannot guarantee survival of every sudden system-wide allocation.
+Images above the pixel cap use their original-image fallback.
+
+The authenticated job status now persists `activeWarehouseId`, `photoIndex`
+and `phase` before download/conversion/upload. It also includes API memory
+measurements; 30-second heartbeat logs carry the same diagnostic context.
+If the host kills the API without a stack trace, the last active photo remains
+visible after restart. Ordinary child crashes produce a per-photo reason such
+as `source_worker_exit_sigkill`, allowing other images to continue.
 
 Each completed warehouse is saved immediately. A Redis cursor survives job
 failure or restart; the next trigger resumes after that warehouse and wraps
@@ -127,7 +151,8 @@ after a website build's data fetch become available on the next daily build.
 
 The manual `scripts/compress_photos_to_webp.js` now uses the same compression
 core. It retains `--warehouse=ID`, `--limit=N`, `--start-id=ID`, `--dry-run` and
-`--force`, with `--concurrency=1..4` (default 2). Unlike the HTTP sweep, the CLI
+`--force`, with `--concurrency=1..4` (default 1). This flag can parallelize I/O;
+native decoders remain serialized within a process. Unlike the HTTP sweep, the CLI
 includes hidden warehouses and does not use the Redis lease/cursor; run it as
 a separate maintenance operation. `--start-id` resumes then wraps once.
 
@@ -135,6 +160,19 @@ Run `npm run test:webp` for fixture-based compression, recovery and local HTTP
 tests, including real Sharp WebP conversion. Tests never load `.env`, access
 production data or upload to R2. Redis locking uses an in-memory model in this
 suite; it does not require a live Redis instance.
+
+For a local memory replay, run
+`node tests/webp/memory-replay.mjs /path/to/manifest.json`, where the manifest is
+an array of `{ "path": "/path/to/photo.jpg" }` records. It processes eight passes
+with fixture uploads, reports combined API/worker RSS and uses a 512 MiB budget.
+The 2026-09-09 replay of warehouse 983's 18 real 12MP JPEGs completed 144
+conversions: the old in-process implementation peaked at 747.4 MiB; the new
+implementation sampled 216.6 MiB combined (222.6 MiB when adding the separate
+process peaks conservatively). The replay excludes live API traffic and used
+a larger local host, not a kernel-enforced 512 MiB container. Render verification
+is still required after deploying this change. Sharp documents its Linux
+[allocator fragmentation risk](https://sharp.pixelplumbing.com/install/#linux-memory-allocator)
+and [cache/concurrency controls](https://sharp.pixelplumbing.com/api-utility/).
 
 ## Features
 

@@ -132,11 +132,27 @@ test('heartbeats renew the lease during a long warehouse conversion', async () =
   const original = redis.eval;
   let renewals = 0;
   redis.eval = async (script, options) => {
-    if (script === CHECKPOINT && options.arguments[2] === '') renewals++;
+    if (script === CHECKPOINT && options.arguments[4] === '') renewals++;
     return original(script, options);
   };
   const h = harness(async () => { await delay(35); return finished; }, { heartbeatMs: 5 }, redis);
   await h.job.start(); await h.scheduled.shift()();
   assert.ok(renewals >= 1);
   assert.equal((await h.job.status()).status, 'succeeded');
+});
+
+test('memory-pressure pause preserves the cursor and diagnostic context for the next daily run', async () => {
+  const h = harness(async ({ onProgress }) => {
+    await onProgress({ cursor: 982, activeWarehouseId: 983, photoIndex: 7, phase: 'convert' });
+    throw Object.assign(new Error('webp_memory_pressure'), { code: 'WEBP_MEMORY_PRESSURE' });
+  });
+  await h.job.start(); await h.scheduled.shift()();
+  const current = await h.job.status();
+  assert.equal(current.status, 'partial');
+  assert.equal(current.reason, 'memory_pressure');
+  assert.equal(current.progress.cursor, 982);
+  assert.equal(current.progress.activeWarehouseId, 983);
+  assert.ok(current.memory.rssMiB > 0);
+  assert.equal(h.redis.values.get(JOB_KEYS[2]), '982');
+  assert.equal((await h.job.start()).status, 'accepted');
 });

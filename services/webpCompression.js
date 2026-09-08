@@ -1,5 +1,8 @@
-import sharp from 'sharp';
+import { mkdtemp, open, readFile, rm, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { S3Client, ListObjectsV2Command, PutObjectCommand } from '@aws-sdk/client-s3';
+import { convertImageFile } from './webpImageProcess.js';
 
 const IMAGE_EXTENSIONS = /\.(?:jpe?g|png|webp|avif|gif|tiff?|bmp)$/i;
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -46,7 +49,7 @@ export function compressionConfig(env = process.env) {
     bucket: env.R2_BUCKET_NAME.trim(), publicBase: base.origin, width, quality };
 }
 
-export function createPhotoStore(config, { client, fetchPhoto = fetch, requestTimeoutMs = 30_000 } = {}) {
+export function createPhotoStore(config, { client, fetchPhoto = fetch, requestTimeoutMs = 30_000, convertFile = convertImageFile, temporaryRoot = tmpdir() } = {}) {
   const s3 = client ?? new S3Client({ region: 'auto', endpoint: `https://${config.account}.r2.cloudflarestorage.com`,
     credentials: { accessKeyId: config.accessKey, secretAccessKey: config.secret }, maxAttempts: 2 });
   return {
@@ -66,40 +69,58 @@ export function createPhotoStore(config, { client, fetchPhoto = fetch, requestTi
       } while (continuation);
       return keys;
     },
-    async upload(source, target, signal) {
-      // The timeout covers the body as well as the response headers.
-      const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(requestTimeoutMs)]);
-      const response = await fetchPhoto(source, { signal: requestSignal, redirect: 'error' });
-      if (!response.ok) { await response.body?.cancel(); throw new Error(`source_http_${response.status}`); }
-      if (/^(video\/|application\/pdf)/i.test(response.headers.get('content-type') ?? '')) {
-        await response.body?.cancel(); throw new Error('source_not_image');
-      }
-      if (Number(response.headers.get('content-length')) > MAX_BYTES) {
-        await response.body?.cancel(); throw new Error('source_too_large');
-      }
-      if (!response.body) throw new Error('source_empty');
-      const reader = response.body.getReader();
-      const chunks = [];
-      let size = 0;
+    async upload(source, target, signal, activity = async () => {}) {
+      const directory = await mkdtemp(join(temporaryRoot, 'warehouse-webp-'));
       try {
-        while (true) {
-          requestSignal.throwIfAborted();
-          const { value, done } = await reader.read();
-          if (done) break;
-          size += value.byteLength;
-          if (size > MAX_BYTES) throw new Error('source_too_large');
-          chunks.push(value);
+        await activity('download');
+        // The timeout covers the body as well as the response headers.
+        const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(requestTimeoutMs)]);
+        const response = await fetchPhoto(source, { signal: requestSignal, redirect: 'error' });
+        if (!response.ok) { await response.body?.cancel(); throw new Error(`source_http_${response.status}`); }
+        if (/^(video\/|application\/pdf)/i.test(response.headers.get('content-type') ?? '')) {
+          await response.body?.cancel(); throw new Error('source_not_image');
         }
-      } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
-      signal.throwIfAborted();
-      const bytes = await sharp(Buffer.concat(chunks), { limitInputPixels: 40_000_000 })
-        .timeout({ seconds: 15 }).rotate().resize({ width: config.width, withoutEnlargement: true })
-        .webp({ quality: config.quality }).toBuffer();
-      signal.throwIfAborted();
-      await s3.send(new PutObjectCommand({ Bucket: config.bucket, Key: target.key, Body: bytes,
-        ContentType: 'image/webp', CacheControl: 'public, max-age=31536000, immutable' }),
-      { abortSignal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]) });
-      return bytes.length;
+        if (Number(response.headers.get('content-length')) > MAX_BYTES) {
+          await response.body?.cancel(); throw new Error('source_too_large');
+        }
+        if (!response.body) throw new Error('source_empty');
+        const input = join(directory, 'original');
+        const output = join(directory, 'converted.webp');
+        let file;
+        let reader;
+        let size = 0;
+        try {
+          file = await open(input, 'wx', 0o600);
+          reader = response.body.getReader();
+          while (true) {
+            requestSignal.throwIfAborted();
+            const { value, done } = await reader.read();
+            if (done) break;
+            size += value.byteLength;
+            if (size > MAX_BYTES) throw new Error('source_too_large');
+            // Write each bounded chunk to disk; never retain a whole original or
+            // duplicate it via Buffer.concat inside the long-lived API process.
+            await file.writeFile(value);
+          }
+        } finally {
+          if (reader) { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+          else await response.body.cancel().catch(() => {});
+          await file?.close();
+        }
+        signal.throwIfAborted();
+        await activity('convert');
+        const converted = await convertFile(input, output, config, signal);
+        signal.throwIfAborted();
+        await activity('upload', { workerPeakRssMiB: converted.peakRssMiB });
+        const { size: outputBytes } = await stat(output);
+        if (!outputBytes || outputBytes > MAX_BYTES) throw new Error('source_invalid_output');
+        // Only the small finished WebP enters API memory, never decoded pixels.
+        const body = await readFile(output);
+        await s3.send(new PutObjectCommand({ Bucket: config.bucket, Key: target.key, Body: body,
+          ContentType: 'image/webp', CacheControl: 'public, max-age=31536000, immutable' }),
+        { abortSignal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]) });
+        return outputBytes;
+      } finally { await rm(directory, { recursive: true, force: true }); }
     },
   };
 }
@@ -126,14 +147,14 @@ async function parallelMap(items, concurrency, fn) {
   const results = new Array(items.length);
   let next = 0;
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => {
-    while (next < items.length) { const index = next++; results[index] = await fn(items[index]); }
+    while (next < items.length) { const index = next++; results[index] = await fn(items[index], index); }
   }));
   return results;
 }
 
 /** Resumable, idempotent sweep; both the nightly endpoint and CLI use this. */
 export async function compressWarehousePhotos({ repository, store, signal = new AbortController().signal,
-  startId = 0, visibleOnly = true, warehouseId, limit, concurrency = 2, force = false, dryRun = false,
+  startId = 0, visibleOnly = true, warehouseId, limit, concurrency = 1, force = false, dryRun = false,
   onProgress = async () => {}, clearCache = async () => {} }) {
   if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 4 || !Number.isSafeInteger(startId) || startId < 0) {
     throw new Error('webp_invalid_run_options');
@@ -145,7 +166,7 @@ export async function compressWarehousePhotos({ repository, store, signal = new 
   // Remember failures too: duplicated source URLs get at most one attempt per
   // run, and will be retried on the next daily invocation.
   const attempted = new Map();
-  const convert = async (source) => {
+  const convert = async (source, photoIndex, activeWarehouseId) => {
     signal.throwIfAborted();
     const target = photoTarget(source, store.publicBase);
     if (!target) { summary.skipped++; return null; }
@@ -157,16 +178,21 @@ export async function compressWarehousePhotos({ repository, store, signal = new 
     const task = (async () => {
       try {
         if (dryRun) summary.wouldUpload++;
-        else { summary.bytes += await store.upload(source, target, signal); summary.uploaded++; existing.add(target.key); }
+        else {
+          const activity = async (phase, details = {}) => onProgress({ ...summary, activeWarehouseId, photoIndex, phase, ...details });
+          summary.bytes += await store.upload(source, target, signal, activity);
+          summary.uploaded++; existing.add(target.key);
+        }
         attempted.set(target.key, true);
         return target.url;
       } catch (error) {
         signal.throwIfAborted();
+        if (error?.code === 'WEBP_MEMORY_PRESSURE') throw error;
         attempted.set(target.key, false);
         summary.failed++;
         const reason = /^source_[a-z_0-9]+$/.test(error?.message ?? '') ? error.message
           : error?.name === 'TimeoutError' ? 'source_timeout' : 'conversion_or_upload_failed';
-        if (summary.errors.length < 5) summary.errors.push({ reason });
+        if (summary.errors.length < 5) summary.errors.push({ reason, warehouseId: activeWarehouseId, photoIndex });
         return null;
       }
     })();
@@ -184,7 +210,7 @@ export async function compressWarehousePhotos({ repository, store, signal = new 
         if (!rows.length) break;
         for (const row of rows) {
           signal.throwIfAborted();
-          const mapped = await parallelMap(photoSlots(row.photos), concurrency, convert);
+          const mapped = await parallelMap(photoSlots(row.photos), concurrency, (source, index) => convert(source, index, row.id));
           signal.throwIfAborted();
           const value = JSON.stringify(mapped);
           if (!dryRun && value !== row.photosWebp) {

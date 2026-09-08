@@ -47,13 +47,20 @@ export function createWebpJob({ getRedis, run, schedule = fn => setImmediate(fn)
     const controller = new AbortController();
     let progress = {};
     let leaseBusy = false;
+    const diagnostics = () => {
+      const memory = process.memoryUsage();
+      return { rssMiB: Math.ceil(memory.rss / 1048576), heapMiB: Math.ceil(memory.heapUsed / 1048576), externalMiB: Math.ceil(memory.external / 1048576) };
+    };
+    const running = () => ({ ...job, status: 'running', updatedAt: now(), progress, memory: diagnostics() });
     const renew = async () => {
       if (leaseBusy || controller.signal.aborted) return;
       leaseBusy = true;
       try {
+        const current = running();
         const owned = await bounded(redis.eval(CHECKPOINT, { keys: JOB_KEYS,
-          arguments: [job.jobId, String(LEASE_SECONDS), '', String(STATUS_SECONDS), ''] }));
+          arguments: [job.jobId, String(LEASE_SECONDS), JSON.stringify(current), String(STATUS_SECONDS), ''] }));
         if (!owned) controller.abort(new Error('lease_lost'));
+        else log.info('[warehouse-webp]', 'heartbeat', current);
       } catch { controller.abort(new Error('lease_unavailable')); }
       finally { leaseBusy = false; }
     };
@@ -66,7 +73,7 @@ export function createWebpJob({ getRedis, run, schedule = fn => setImmediate(fn)
       const onProgress = async (value) => {
         controller.signal.throwIfAborted();
         progress = value;
-        const current = { ...job, status: 'running', updatedAt: now(), progress };
+        const current = running();
         const owned = await bounded(redis.eval(CHECKPOINT, { keys: JOB_KEYS,
           arguments: [job.jobId, String(LEASE_SECONDS), JSON.stringify(current), String(STATUS_SECONDS), String(value.cursor ?? startId)] }));
         if (!owned) { controller.abort(new Error('lease_lost')); controller.signal.throwIfAborted(); }
@@ -79,16 +86,20 @@ export function createWebpJob({ getRedis, run, schedule = fn => setImmediate(fn)
         arguments: [job.jobId, JSON.stringify({ ...job, status: finalStatus, finishedAt: now(), progress }), String(STATUS_SECONDS)] }));
       if (!finished) { controller.abort(new Error('lease_lost')); controller.signal.throwIfAborted(); }
       log.info('[warehouse-webp]', finalStatus, { jobId: job.jobId, ...progress });
-    } catch {
+    } catch (error) {
+      if (error?.code === 'WEBP_MEMORY_PRESSURE') controller.abort(new Error('memory_pressure'));
       const reason = controller.signal.reason?.message;
-      const finalStatus = reason === 'run_budget_reached' ? 'partial' : controller.signal.aborted ? 'interrupted' : 'failed';
-      const message = finalStatus === 'partial' ? 'Time budget reached; the next daily trigger resumes from the saved cursor.'
+      const finalStatus = ['run_budget_reached', 'memory_pressure'].includes(reason) ? 'partial' : controller.signal.aborted ? 'interrupted' : 'failed';
+      const message = reason === 'memory_pressure' ? 'Memory budget reached; the next daily trigger resumes from the saved cursor.'
+        : finalStatus === 'partial' ? 'Time budget reached; the next daily trigger resumes from the saved cursor.'
         : 'Compression stopped; the next trigger retries unfinished photos.';
+      const details = { ...job, status: finalStatus, finishedAt: now(), message, progress, memory: diagnostics(),
+        reason: reason ?? (/^[A-Za-z_0-9]{1,64}$/.test(error?.name ?? '') ? error.name : 'job_failed') };
       try {
         await bounded(redis.eval(FINISH, { keys: JOB_KEYS, arguments: [job.jobId,
-          JSON.stringify({ ...job, status: finalStatus, finishedAt: now(), message, progress }), String(STATUS_SECONDS)] }));
+          JSON.stringify(details), String(STATUS_SECONDS)] }));
       } catch { /* The expiring lease makes an interrupted worker recoverable. */ }
-      log.error('[warehouse-webp]', finalStatus, { jobId: job.jobId });
+      log.error('[warehouse-webp]', finalStatus, details);
     } finally { clearInterval(heartbeat); clearTimeout(deadline); }
   }
 

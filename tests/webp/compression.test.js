@@ -128,7 +128,7 @@ test('concurrency is capped and bad options cannot clear photo mappings', async 
   let active = 0; let peak = 0;
   h.store.upload = async () => { active++; peak = Math.max(peak, active); await new Promise(resolve => setTimeout(resolve, 5)); active--; return 10; };
   await h.run();
-  assert.equal(peak, 2);
+  assert.equal(peak, 1);
   await assert.rejects(h.run({ concurrency: 0 }), /invalid_run_options/);
   await assert.rejects(h.run({ concurrency: 10 }), /invalid_run_options/);
 });
@@ -206,4 +206,33 @@ test('configuration fails closed before a sweep can start', () => {
   assert.equal(compressionConfig(env).width, 1280);
   assert.throws(() => compressionConfig({ ...env, WEBP_MAX_WIDTH: '0' }), /invalid/);
   assert.throws(() => compressionConfig({ ...env, R2_PUBLIC_URL: 'http://internal/' }), /invalid/);
+});
+
+test('memory pressure preserves the current row and persists the active photo without advancing the cursor', async () => {
+  const h = harness([{ id: 983, photos: JSON.stringify([jpg('a'), jpg('b')]), photosWebp: null }], ['webp/a.webp']);
+  h.store.upload = async (_source, _target, _signal, activity) => {
+    await activity('convert');
+    throw Object.assign(new Error('webp_memory_pressure'), { code: 'WEBP_MEMORY_PRESSURE' });
+  };
+  await assert.rejects(h.run({ startId: 982 }), { code: 'WEBP_MEMORY_PRESSURE' });
+  assert.equal(h.rows[0].photosWebp, null);
+  const progress = h.calls.checkpoints.at(-1);
+  assert.equal(progress.cursor, 982);
+  assert.equal(progress.activeWarehouseId, 983);
+  assert.equal(progress.photoIndex, 1);
+  assert.equal(progress.phase, 'convert');
+  assert.equal(h.calls.saves.length, 0);
+});
+
+test('native decoder failure skips that photo while saving other photos and their slot alignment', async () => {
+  const h = harness([{ id: 983, photos: JSON.stringify([jpg('bad'), jpg('good')]), photosWebp: null }]);
+  const upload = h.store.upload;
+  h.store.upload = async (...args) => {
+    if (args[0] === jpg('bad')) throw new Error('source_worker_exit_sigkill');
+    return upload(...args);
+  };
+  const result = await h.run();
+  assert.equal(result.failed, 1);
+  assert.deepEqual(result.errors, [{ reason: 'source_worker_exit_sigkill', warehouseId: 983, photoIndex: 0 }]);
+  assert.deepEqual(JSON.parse(h.rows[0].photosWebp), [null, webp('good')]);
 });
