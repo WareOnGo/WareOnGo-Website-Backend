@@ -275,3 +275,19 @@ npx prisma generate
 ## Support
 
 For technical issues or questions, refer to the API documentation or check the application logs for detailed error information.
+
+## Micromarket overview geography
+
+`GET /micromarkets` includes `parentState` and `stateSlug` alongside the existing
+city/micromarket identity, statistics and listing IDs. State is the most common
+recorded state for the canonical parent city; city aliases share the result and
+ties resolve alphabetically. Missing/invalid states remain null. The v5 cache
+key prevents older cached payloads from omitting these fields after deployment.
+
+Published content from `/micromarket-pages` keeps its existing `(citySlug, slug)`
+key. The website renders it at `/overview/{state}/{city}/{micromarket}`; existing
+listing URLs keep their plain grid. Deploy this backend before rebuilding the
+website and retargeting the CMS. No schema migration is needed.
+
+Run `node --test tests/micromarket-overview.test.js` for the isolated geography
+and API contract checks; they replace database/cache access with fixtures.

@@ -4,8 +4,8 @@ import { getMicromarkets, getMicromarket } from '../controllers/micromarketDataC
 const router = express.Router();
 
 router.get('/', getMicromarkets);
-// Two segments, matching the page URL: a micromarket slug is only unique inside
-// its parent city.
+// Stable city/micromarket lookup; the payload also supplies the parent state
+// for /overview/{state}/{city}/{micromarket}.
 router.get('/:citySlug/:slug', getMicromarket);
 
 export default router;

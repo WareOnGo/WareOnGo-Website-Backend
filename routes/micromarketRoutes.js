@@ -4,8 +4,8 @@ import { getMicromarketPages, getMicromarketPage } from '../controllers/micromar
 const router = express.Router();
 
 router.get('/', getMicromarketPages);
-// Two segments, matching the page URL they describe: a micromarket slug is only
-// unique inside its parent city.
+// Stable content lookup key. Public overview URLs also carry the state derived
+// by /micromarkets; changing that location does not require moving CMS records.
 router.get('/:citySlug/:slug', getMicromarketPage);
 
 export default router;

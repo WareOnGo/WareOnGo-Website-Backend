@@ -60,6 +60,24 @@ const slugifyMicromarket = (name) =>
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
 
+/** One state per canonical city, shared by all of its overview pages. */
+export function parentStatesFor(listings) {
+  const votes = new Map();
+  for (const listing of listings) {
+    const city = canonicalCity(listing.city);
+    const raw = String(listing.state ?? '').trim();
+    if (!city || !/^[a-zA-Z][a-zA-Z\s&-]{2,79}$/.test(raw) || /^(none|null|unknown|not available)$/i.test(raw)) continue;
+    const state = titleCase(raw.replace(/\s+/g, ' '));
+    const states = votes.get(city) ?? new Map();
+    states.set(state, (states.get(state) ?? 0) + 1);
+    votes.set(city, states);
+  }
+  return new Map(Array.from(votes, ([city, states]) => [
+    city,
+    Array.from(states).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0],
+  ]));
+}
+
 /** The city column also holds locality fragments ("Sector 78, Badshahpur"). */
 const isRealCityName = (name) => name.length > 2 && !name.includes(',');
 
@@ -229,7 +247,8 @@ function statsFor(rows) {
 //   v2: gained listingIds
 //   v3: gained peers
 //   v4: rents parsed by rateNumber, so the values themselves move
-const CACHE_KEY = 'micromarkets:v4';
+// v5: parentState/stateSlug identify /overview/{state}/{city}/{micromarket}.
+const CACHE_KEY = 'micromarkets:v5';
 const CACHE_TTL_SECONDS = 600;
 
 class MicromarketService {
@@ -246,6 +265,7 @@ class MicromarketService {
       select: {
         id: true,
         city: true,
+        state: true,
         micromarket: true,
         totalSpaceSqft: true,
         clearHeightFt: true,
@@ -259,6 +279,7 @@ class MicromarketService {
     });
 
     const listings = rows.map((r) => ({ ...r, fireNocAvailable: r.warehouseData?.fireNocAvailable ?? null }));
+    const parentStates = parentStatesFor(listings);
 
     // Cities allowed to host a micromarket page, mapped to their page slug.
     const cityTotals = new Map();
@@ -304,12 +325,15 @@ class MicromarketService {
           .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
           .find(([city]) => hostCities.has(city));
         const parentCity = parent?.[0] ?? null;
+        const parentState = parentStates.get(parentCity) ?? null;
         const stats = statsFor(entry.rows);
         return {
           name: entry.name,
           slug,
           parentCity,
           citySlug: parentCity ? hostCities.get(parentCity) : null,
+          parentState,
+          stateSlug: parentState ? slugifyMicromarket(parentState) : null,
           /** Whether the site builds a page for this at all. */
           hasPage: stats.listings >= MICROMARKET_MIN_LISTINGS && parentCity !== null,
           /**

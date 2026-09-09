@@ -44,8 +44,9 @@ const toApiShape = (m) => ({
 });
 
 // Read at build time by the website's scripts/generate-micromarkets.mjs. Only
-// PUBLISHED rows are exposed — a draft must never flip a live page from the
-// plain listing grid to the editorial template.
+// PUBLISHED rows are exposed for /overview/{state}/{city}/{micromarket}.
+// Existing listing URLs always render their plain grid. The parent state is
+// derived by /micromarkets; the content's existing city/slug join stays stable.
 export async function getMicromarketPages(req, res) {
   try {
     const pages = await prisma.micromarketPage.findMany({

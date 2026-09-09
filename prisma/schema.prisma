@@ -633,11 +633,10 @@ model Blog {
   @@index([status, sortOrder])
 }
 
-/// CMS-authored editorial content for one micromarket listing page
-/// (/listings/city/{citySlug}/{slug}). Deliberately optional: a micromarket
-/// with no PUBLISHED row here keeps rendering the plain listing grid it renders
-/// today, and one with a row renders the full editorial template over the same
-/// live inventory. That is the whole if/else — presence of a row is the switch.
+/// CMS-authored content for /overview/{state}/{citySlug}/{slug}.
+/// State comes from canonical city geography in /micromarkets. Existing
+/// /listings/city/{citySlug}/{slug} URLs always serve the plain listing grid;
+/// only PUBLISHED rows produce an overview page.
 ///
 /// Only prose, images and FAQs live here. Every number on the page (listing
 /// count, rent and size ranges, construction mix, compliance counts, the peer
