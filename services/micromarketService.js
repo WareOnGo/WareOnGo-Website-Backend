@@ -35,7 +35,7 @@ const CITY_ALIASES = {
   gurgaon: 'Gurugram',
 };
 
-const titleCase = (s) =>
+export const titleCase = (s) =>
   s
     .toLowerCase()
     .split(/\s+/)
@@ -43,13 +43,25 @@ const titleCase = (s) =>
     .map((w) => w[0].toUpperCase() + w.slice(1))
     .join(' ');
 
-const canonicalCity = (raw) => {
+export const canonicalCity = (raw) => {
   const lower = String(raw ?? '').trim().toLowerCase();
   if (!lower) return null;
   return CITY_ALIASES[lower] ?? titleCase(lower);
 };
 
-const slugifyCity = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+/**
+ * States carry no aliases — there is no "Bombay" for Maharashtra — so this is
+ * title casing alone. It exists as its own function rather than as a call to
+ * titleCase so that the two canonicalisations stay separable if a state ever
+ * does need one.
+ */
+export const canonicalState = (raw) => {
+  const value = String(raw ?? '').trim();
+  if (!/^[a-zA-Z][a-zA-Z\s&-]{2,79}$/.test(value) || /^(none|null|unknown|not available)$/i.test(value)) return null;
+  return titleCase(value.replace(/\s+/g, ' '));
+};
+
+export const slugifyCity = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
 /** Keeps '/' readable as a separator: "Alipur/Budhpur" -> "alipur-budhpur". */
 const slugifyMicromarket = (name) =>
@@ -65,9 +77,8 @@ export function parentStatesFor(listings) {
   const votes = new Map();
   for (const listing of listings) {
     const city = canonicalCity(listing.city);
-    const raw = String(listing.state ?? '').trim();
-    if (!city || !/^[a-zA-Z][a-zA-Z\s&-]{2,79}$/.test(raw) || /^(none|null|unknown|not available)$/i.test(raw)) continue;
-    const state = titleCase(raw.replace(/\s+/g, ' '));
+    const state = canonicalState(listing.state);
+    if (!city || !state) continue;
     const states = votes.get(city) ?? new Map();
     states.set(state, (states.get(state) ?? 0) + 1);
     votes.set(city, states);
@@ -79,7 +90,7 @@ export function parentStatesFor(listings) {
 }
 
 /** The city column also holds locality fragments ("Sector 78, Badshahpur"). */
-const isRealCityName = (name) => name.length > 2 && !name.includes(',');
+export const isRealCityName = (name) => name.length > 2 && !name.includes(',');
 
 /**
  * Some rows carry an unresolved micro_market row id (32 base62 characters) where
@@ -214,7 +225,7 @@ const firstSize = (sizes) => {
   return typeof first === 'number' && first > 100 ? first : null;
 };
 
-function statsFor(rows) {
+export function statsFor(rows) {
   const built = rows.filter((r) => !isUnbuilt(r.warehouseType));
   const flooring = built.map((r) => flooringLabel(r.flooringType)).filter(Boolean);
 
@@ -247,8 +258,9 @@ function statsFor(rows) {
 //   v2: gained listingIds
 //   v3: gained peers
 //   v4: rents parsed by rateNumber, so the values themselves move
-// v5: parentState/stateSlug identify /overview/{state}/{city}/{micromarket}.
-const CACHE_KEY = 'micromarkets:v5';
+//   v5: parentState/stateSlug identify overview URLs.
+//   v6: peers include their listing path for the shared editorial template.
+const CACHE_KEY = 'micromarkets:v6';
 const CACHE_TTL_SECONDS = 600;
 
 class MicromarketService {
@@ -379,19 +391,21 @@ class MicromarketService {
         .filter((s) => s.slug !== m.slug && s.rent !== null)
         .sort((a, b) => b.listings - a.listings || a.name.localeCompare(b.name))
         .slice(0, PEER_CHART_MAX - 1);
+      // `path` travels with each bar so that a consumer never has to know which
+      // scope it is looking at to build a link. citySlug stays for the
+      // consumers that already read it.
+      const bar = (x, isSelf) => ({
+        name: x.name,
+        slug: x.slug,
+        citySlug: x.citySlug,
+        path: `/listings/city/${x.citySlug}/${x.slug}`,
+        medianRent: x.rent.median,
+        isSelf,
+      });
       m.peers =
         siblings.length === 0
           ? []
-          : [
-              ...siblings.map((s) => ({
-                name: s.name,
-                slug: s.slug,
-                citySlug: s.citySlug,
-                medianRent: s.rent.median,
-                isSelf: false,
-              })),
-              { name: m.name, slug: m.slug, citySlug: m.citySlug, medianRent: m.rent.median, isSelf: true },
-            ];
+          : [...siblings.map((s) => bar(s, false)), bar(m, true)];
     }
 
     const payload = {

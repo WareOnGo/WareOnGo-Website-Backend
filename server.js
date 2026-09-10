@@ -42,6 +42,8 @@ import micromarketRoutes from './routes/micromarketRoutes.js';
 import micromarketDataRoutes from './routes/micromarketDataRoutes.js';
 import { createWebpRouter } from './routes/webpRoutes.js';
 import { warehouseWebpJob, webpConfigured } from './services/warehouseWebpService.js';
+import locationPageRoutes from './routes/locationPageRoutes.js';
+import locationDataRoutes from './routes/locationDataRoutes.js';
 
 app.use('/health', healthRoutes);
 app.use('/blogs', blogRoutes);
@@ -57,6 +59,11 @@ app.use('/micromarket-pages', micromarketRoutes);
 // every figure computed from their inventory. The single source of truth for
 // the website build and the CMS alike; see services/micromarketService.js.
 app.use('/micromarkets', micromarketDataRoutes);
+// The same pair one and two levels up: CMS-authored content for city and state
+// overview pages and their derived figures. Existing listing URLs keep their
+// grids; see services/locationService.js.
+app.use('/location-pages', locationPageRoutes);
+app.use('/locations', locationDataRoutes);
 app.use('/enquiries', enquiryRoutes);
 app.use('/customer-requests', customerRequestRoutes);
 app.use('/api/auth', authRoutes);

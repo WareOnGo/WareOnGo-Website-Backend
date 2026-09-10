@@ -15,7 +15,8 @@
     "test:enquiry": "node ./scripts/test_enquiry.js",
     "test:customer": "node ./scripts/test_customer_request.js",
     "test:integration": "node ./scripts/test_enquiry.js && node ./scripts/test_customer_request.js",
-    "test:emailjs": "node ./scripts/test_email_simple.js"
+    "test:emailjs": "node ./scripts/test_email_simple.js",
+    "test:locations": "node tests/location-overview.test.js && node tests/micromarket-overview.test.js"
   },
   "repository": {
     "type": "git",

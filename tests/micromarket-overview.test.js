@@ -38,7 +38,7 @@ test('API includes state geography without changing existing listing eligibility
   try {
     const { data } = await micromarkets.getMicromarkets();
     assert.equal(query.select.state, true);
-    assert.equal(cacheKey, 'micromarkets:v5');
+    assert.equal(cacheKey, 'micromarkets:v6');
     assert.equal(data.length, 2);
     for (const market of data) {
       assert.equal(market.hasPage, true);

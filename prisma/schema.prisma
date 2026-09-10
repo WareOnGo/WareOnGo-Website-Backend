@@ -709,6 +709,68 @@ model MicromarketPage {
   @@index([status])
 }
 
+/// CMS-authored editorial content for city and state overview pages.
+///
+/// Same contract as MicromarketPage, and deliberately the same content shape:
+/// one wireframe serves all three scopes, so the CMS form, the preview and the
+/// website template are shared. Published content creates a separate overview;
+/// existing city and state listing URLs keep their warehouse grids.
+///
+/// One table with a discriminator rather than CityPage and StatePage: the two
+/// differ only in which slug namespace they live in, and splitting them would
+/// double every consumer for no gain.
+model LocationPage {
+  id               Int                   @id @default(autoincrement())
+  kind             LocationPageKind
+  /// The overview segment: /overview/{state}/{slug} for cities or /overview/{slug} for states, matching
+  /// locationLoader.ts `slugify` on the canonical name.
+  slug             String
+  /// Display name, for the CMS list only. The site uses the canonical name it
+  /// derives from listings, so a stale value here can never reach a page.
+  name             String
+  /// <title> tag.
+  seoTitle         String
+  /// Meta description + CollectionPage.description.
+  metaDescription  String
+  /// On-page H1.
+  h1               String
+  /// Small uppercase line above the H1. Null falls back to a derived default.
+  heroEyebrow      String?
+  /// Lead paragraph. The one required prose slot — without it there is no page.
+  heroProse        String
+  /// {url, alt, width, height} or null. Uploaded through the CMS to R2.
+  heroImage        Json?
+  /// Section headings. Null falls back to a default built from the place name.
+  marketHeading    String?
+  marketProse      String?
+  marketImage      Json?
+  rentsHeading     String?
+  rentsProse       String?
+  specHeading      String?
+  specProse        String?
+  inventoryHeading String?
+  /// {q,a}[] — drives both the visible accordion and the FAQPage LD, which must
+  /// stay identical for the schema to validate.
+  faqs             Json
+  /// Slugs of blogs to cross-link in the page footer ("Editorial" row).
+  relatedBlogs     String[]              @default([])
+  /// Manual corrections to the figures the website derives from live listings.
+  /// Same shape and same rules as MicromarketPage.statOverrides — see there.
+  statOverrides    Json?
+  status           MicromarketPageStatus @default(DRAFT)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  /// Snapshot of the content fields as of the last deploy the CMS triggered,
+  /// and when that was. Records a deploy being *triggered*, not a build
+  /// succeeding.
+  deployedAt       DateTime?
+  deployedContent  Json?
+
+  @@unique([kind, slug])
+  @@index([status])
+}
+
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model labeled_warehouse_images {
   id             Int        @id @default(autoincrement())
@@ -887,6 +949,14 @@ enum BlogStatus {
 enum MicromarketPageStatus {
   DRAFT
   PUBLISHED
+}
+
+/// Which kind of location a LocationPage carries content for. Micromarkets are
+/// not here: they keep their own table, because they are identified by a
+/// (citySlug, slug) pair rather than by a slug alone.
+enum LocationPageKind {
+  CITY
+  STATE
 }
 
 enum WaterSupply {
