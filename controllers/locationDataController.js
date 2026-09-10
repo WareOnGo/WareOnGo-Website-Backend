@@ -1,3 +1,4 @@
+import { requestCacheOptions } from '../utils/requestCacheOptions.js';
 import locationService from '../services/locationService.js';
 
 /**
@@ -7,7 +8,7 @@ import locationService from '../services/locationService.js';
  */
 export async function getLocations(req, res) {
   try {
-    res.status(200).json(await locationService.getLocations());
+    res.status(200).json(await locationService.getLocations(requestCacheOptions(req, res)));
   } catch (error) {
     console.error('Error deriving locations:', error);
     res.status(500).json({ error: 'An error occurred while deriving locations.' });
@@ -21,8 +22,8 @@ export async function getLocation(req, res) {
     if (upper !== 'CITY' && upper !== 'STATE') {
       return res.status(400).json({ error: "kind must be 'city' or 'state'." });
     }
-    const { gates } = await locationService.getLocations();
-    const found = await locationService.getLocation(upper, slug);
+    const { data, gates } = await locationService.getLocations(requestCacheOptions(req, res));
+    const found = (upper === 'CITY' ? data.cities : data.states).find(place => place.slug === slug);
     if (!found) return res.status(404).json({ error: 'Location not found.' });
     res.status(200).json({ data: found, gates });
   } catch (error) {

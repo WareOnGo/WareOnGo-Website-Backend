@@ -174,12 +174,14 @@ const CACHE_KEY = 'locations:v1';
 const CACHE_TTL_SECONDS = 600;
 
 class LocationService {
-  async getLocations() {
-    try {
-      const cached = await redisService.get(CACHE_KEY);
-      if (cached) return JSON.parse(cached);
-    } catch (err) {
-      console.log('[locations] cache read failed, computing:', err.message);
+  async getLocations({ bypassCache = false } = {}) {
+    if (!bypassCache) {
+      try {
+        const cached = await redisService.get(CACHE_KEY);
+        if (cached) return JSON.parse(cached);
+      } catch (err) {
+        console.log('[locations] cache read failed, computing:', err.message);
+      }
     }
 
     const rows = await prisma.warehouse.findMany({
@@ -219,20 +221,22 @@ class LocationService {
       data: { cities, states },
     };
 
-    try {
-      await redisService.setEx(CACHE_KEY, CACHE_TTL_SECONDS, JSON.stringify(payload));
-    } catch (err) {
-      console.log('[locations] cache write failed:', err.message);
+    if (!bypassCache) {
+      try {
+        await redisService.setEx(CACHE_KEY, CACHE_TTL_SECONDS, JSON.stringify(payload));
+      } catch (err) {
+        console.log('[locations] cache write failed:', err.message);
+      }
     }
 
     return payload;
   }
 
   /** One location, or null. `kind` is case-insensitive: 'city' or 'CITY'. */
-  async getLocation(kind, slug) {
+  async getLocation(kind, slug, options) {
     const upper = String(kind ?? '').toUpperCase();
     if (upper !== 'CITY' && upper !== 'STATE') return null;
-    const { data } = await this.getLocations();
+    const { data } = await this.getLocations(options);
     const list = upper === 'CITY' ? data.cities : data.states;
     return list.find((l) => l.slug === slug) ?? null;
   }

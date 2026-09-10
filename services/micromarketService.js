@@ -264,12 +264,14 @@ const CACHE_KEY = 'micromarkets:v6';
 const CACHE_TTL_SECONDS = 600;
 
 class MicromarketService {
-  async getMicromarkets() {
-    try {
-      const cached = await redisService.get(CACHE_KEY);
-      if (cached) return JSON.parse(cached);
-    } catch (err) {
-      console.log('[micromarkets] cache read failed, computing:', err.message);
+  async getMicromarkets({ bypassCache = false } = {}) {
+    if (!bypassCache) {
+      try {
+        const cached = await redisService.get(CACHE_KEY);
+        if (cached) return JSON.parse(cached);
+      } catch (err) {
+        console.log('[micromarkets] cache read failed, computing:', err.message);
+      }
     }
 
     const rows = await prisma.warehouse.findMany({
@@ -416,10 +418,12 @@ class MicromarketService {
       data,
     };
 
-    try {
-      await redisService.setEx(CACHE_KEY, CACHE_TTL_SECONDS, JSON.stringify(payload));
-    } catch (err) {
-      console.log('[micromarkets] cache write failed:', err.message);
+    if (!bypassCache) {
+      try {
+        await redisService.setEx(CACHE_KEY, CACHE_TTL_SECONDS, JSON.stringify(payload));
+      } catch (err) {
+        console.log('[micromarkets] cache write failed:', err.message);
+      }
     }
 
     return payload;

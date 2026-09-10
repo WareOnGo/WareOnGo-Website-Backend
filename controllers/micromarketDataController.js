@@ -1,3 +1,4 @@
+import { requestCacheOptions } from '../utils/requestCacheOptions.js';
 import micromarketService from '../services/micromarketService.js';
 
 /**
@@ -7,7 +8,7 @@ import micromarketService from '../services/micromarketService.js';
  */
 export async function getMicromarkets(req, res) {
   try {
-    res.status(200).json(await micromarketService.getMicromarkets());
+    res.status(200).json(await micromarketService.getMicromarkets(requestCacheOptions(req, res)));
   } catch (error) {
     console.error('Error deriving micromarkets:', error);
     res.status(500).json({ error: 'An error occurred while deriving micromarkets.' });
@@ -17,7 +18,7 @@ export async function getMicromarkets(req, res) {
 export async function getMicromarket(req, res) {
   try {
     const { citySlug, slug } = req.params;
-    const { data, gates } = await micromarketService.getMicromarkets();
+    const { data, gates } = await micromarketService.getMicromarkets(requestCacheOptions(req, res));
     // Matched on the pair, so only the parent city's URL resolves — the same
     // tag reached via a different city is not this page.
     const found = data.find((m) => m.slug === slug && m.citySlug === citySlug);

@@ -7,7 +7,7 @@ const roundCoord = (value) =>
   typeof value === 'number' ? Math.round(value * 100) / 100 : null;
 
 class WarehouseService {
-  async getWarehouses(filters = {}, page = 1, pageSize = 10) {
+  async getWarehouses(filters = {}, page = 1, pageSize = 10, { bypassCache = false } = {}) {
     const skip = (page - 1) * pageSize;
 
     // Helper function to parse multiple values (comma-separated or multiple params)
@@ -102,18 +102,20 @@ class WarehouseService {
     const cacheKey = `warehouses:v4:page:${page}:size:${pageSize}:filters:${filterKey}`;
 
     // Try to get data from Redis cache first
-    try {
-      const cachedData = await redisService.get(cacheKey);
-      if (cachedData) {
-        console.log(`Cache HIT for key: ${cacheKey}`);
-        return JSON.parse(cachedData);
+    if (!bypassCache) {
+      try {
+        const cachedData = await redisService.get(cacheKey);
+        if (cachedData) {
+          console.log(`Cache HIT for key: ${cacheKey}`);
+          return JSON.parse(cachedData);
+        }
+      } catch (cacheError) {
+        console.log('Cache read error:', cacheError);
+        // Continue with database query if cache fails
       }
-    } catch (cacheError) {
-      console.log('Cache read error:', cacheError);
-      // Continue with database query if cache fails
     }
 
-    console.log(`Cache MISS for key: ${cacheKey}`);
+    console.log(`Cache ${bypassCache ? 'BYPASS' : 'MISS'} for key: ${cacheKey}`);
 
     // For space filters, we need to fetch more records and filter in-memory
     const needsSpaceFilter = minSpace !== null || maxSpace !== null;
@@ -246,12 +248,14 @@ class WarehouseService {
     };
 
     // Cache the result
-    try {
-      const cacheTTL = parseInt(process.env.CACHE_TTL) || 300;
-      await redisService.setEx(cacheKey, cacheTTL, JSON.stringify(responseData));
-      console.log(`Cached data with key: ${cacheKey} for ${cacheTTL} seconds`);
-    } catch (cacheError) {
-      console.log('Cache write error:', cacheError);
+    if (!bypassCache) {
+      try {
+        const cacheTTL = parseInt(process.env.CACHE_TTL) || 300;
+        await redisService.setEx(cacheKey, cacheTTL, JSON.stringify(responseData));
+        console.log(`Cached data with key: ${cacheKey} for ${cacheTTL} seconds`);
+      } catch (cacheError) {
+        console.log('Cache write error:', cacheError);
+      }
     }
 
     return responseData;

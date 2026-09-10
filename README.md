@@ -27,6 +27,17 @@ Required variables:
 - `JWT_SECRET` - JWT signing secret
 - EmailJS configuration for notifications
 
+For the backend's Supabase session connection, include
+`connection_limit=5&pool_timeout=20` in `DATABASE_URL`. Add `?` before these
+parameters if the URL has no query string, otherwise use `&`. Keep the existing
+credentials, host and port. The shared Prisma client supplies these defaults
+when omitted; explicit URL settings take precedence. Each backend process gets
+its own pool, so budget all running instances and other services against the
+session pool limit. The hosted WebP job reuses the backend's pool.
+
+After changing the Render environment, restart/redeploy the backend so its pool
+is recreated. `npm run test:pool` checks configuration without database access.
+
 ### Database Setup
 ```bash
 npx prisma generate
@@ -291,3 +302,16 @@ website and retargeting the CMS. No schema migration is needed.
 
 Run `node --test tests/micromarket-overview.test.js` for the isolated geography
 and API contract checks; they replace database/cache access with fixtures.
+
+## Inventory cache bypass for builds
+
+Inventory GET endpoints (`/warehouses`, `/locations`, `/micromarkets`, including
+location and micromarket detail lookups) honour `Cache-Control: no-cache` or
+`no-store`. These requests read the database directly, skip both Redis reads and
+writes, and return `Cache-Control: no-store` and `X-Wareongo-Cache: bypass`.
+Ordinary requests retain the existing cache behaviour. Database errors propagate;
+a fresh request never falls back to stale Redis data.
+
+Deploy this backend before rebuilding the website with fresh inventory support.
+There are no new environment variables, credentials, cron jobs or migrations.
+Run `npm run test:cache` for isolated cache/controller regression checks.

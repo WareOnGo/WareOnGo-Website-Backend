@@ -1,3 +1,4 @@
+import { requestCacheOptions } from '../utils/requestCacheOptions.js';
 import prisma from '../models/prismaClient.js';
 import { sanitizeForJSON } from '../utils/serialize.js';
 import warehouseService from '../services/warehouseService.js';
@@ -32,7 +33,7 @@ export async function getWarehouses(req, res) {
       hasCoordinates: req.query.hasCoordinates
     };
 
-    const result = await warehouseService.getWarehouses(filters, page, pageSize);
+    const result = await warehouseService.getWarehouses(filters, page, pageSize, requestCacheOptions(req, res));
     res.status(200).json(result);
   } catch (error) {
     console.error('Error fetching warehouses:', error);
