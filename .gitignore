@@ -147,3 +147,6 @@ scripts/inspect_rows.cjs
 scripts/list_bad_rows.cjs
 scripts/pull_city_state.cjs
 scripts/verify_fixes.cjs
+
+# Local Apps Script copy containing the live shared token
+scripts/google-sheets-webhook.private.gs

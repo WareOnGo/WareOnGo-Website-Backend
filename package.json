@@ -19,7 +19,8 @@
     "test:emailjs": "node ./scripts/test_email_simple.js",
     "test:locations": "node tests/location-overview.test.js && node tests/micromarket-overview.test.js",
     "test:pool": "node tests/database-pool.test.js",
-    "test:cache": "node tests/cache-bypass.test.js"
+    "test:cache": "node tests/cache-bypass.test.js",
+    "test:legal": "node --test tests/legal-pages.test.js"
   },
   "repository": {
     "type": "git",

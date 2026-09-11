@@ -2,6 +2,17 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/// Fixed legal URLs. Saving a draft never replaces the version used by builds.
+model LegalPage {
+  slug             String   @id
+  draftContent     Json
+  publishedContent Json
+  deployedContent  Json?
+  deployedAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -783,8 +794,11 @@ model labeled_warehouse_images {
   confidence     Float?
   createdAt      DateTime   @default(now())
 
+  documentKind   DocumentKind?
+
   @@index([classification])
   @@index([warehouseId])
+  @@index([documentKind])
 }
 
 model osm_poi {
@@ -973,4 +987,21 @@ enum ImageClass {
   OUTDOOR
   DOCUMENT
   UNKNOWN
+}
+
+// Synced from the live database before the legal-page migration.
+model ReimbursementSession {
+  tokenHash String   @id
+  email     String
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+// Synced from the live database before the legal-page migration.
+enum DocumentKind {
+  LAYOUT
+  PAPERWORK
+  OTHER_DOCUMENT
+  NOT_A_DOCUMENT
 }
