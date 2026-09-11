@@ -38,9 +38,11 @@ function doPost(e) {
 
   if (payload.type === 'enquiry') {
     var sheet = getOrCreateSheet(ss, 'Enquiries',
-      ['ID', 'Created At', 'Name', 'Phone', 'Email', 'Source']);
+      ['ID', 'Created At', 'Name', 'Phone', 'Email', 'Source', 'Company']);
+    // Append the new column without moving any existing enquiry columns.
+    sheet.getRange(1, 7).setValue('Company');
     sheet.appendRow([
-      data.id, data.createdAt, data.name, data.phoneNumber, data.email, data.source
+      data.id, data.createdAt, data.name, data.phoneNumber, data.email, data.source, data.companyName || ''
     ]);
   } else if (payload.type === 'customer_request') {
     var sheet2 = getOrCreateSheet(ss, 'Customer Requests',

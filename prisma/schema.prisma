@@ -124,6 +124,7 @@ model WarehouseData {
 model Enquiry {
   id          Int       @id @default(autoincrement())
   name        String
+  companyName String?   @map("company_name")
   phoneNumber String    @map("phone_number")
   email       String?
   source      String

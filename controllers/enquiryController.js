@@ -7,7 +7,7 @@ import sheetsService from '../utils/sheetsService.js';
 export async function createEnquiry(req, res) {
   try {
     const body = req.body || {};
-    const { name, phoneNumber, email, source } = body;
+    const { name, phoneNumber, email, source, companyName } = body;
 
     if (!req.body) {
       return res.status(400).json({ error: 'Missing request body (expected JSON)' });
@@ -31,9 +31,19 @@ export async function createEnquiry(req, res) {
       return res.status(400).json({ error: 'Invalid or missing `source`' });
     }
 
+    const warehouseEnquiry = /^warehouse-(?:card|detail)-\d+-(?:callback|enquiry)$/.test(source.trim());
+    if (companyName != null && typeof companyName !== 'string') {
+      return res.status(400).json({ error: 'Invalid `companyName`' });
+    }
+    const trimmedCompanyName = companyName?.trim() || null;
+    if (warehouseEnquiry && !trimmedCompanyName) {
+      return res.status(400).json({ error: 'Company name is required for warehouse enquiries' });
+    }
+
     const created = await prisma.enquiry.create({
       data: {
         name: name.trim(),
+        companyName: trimmedCompanyName,
         phoneNumber: phoneNumber.trim(),
         email: email ? email.trim() : null,
         source: source.trim(),

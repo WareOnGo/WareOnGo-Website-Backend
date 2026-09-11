@@ -180,6 +180,18 @@ Submit a new enquiry from website visitors.
 - `phoneNumber` (required) - Valid phone number format
 - `email` (optional) - Valid email format if provided
 - `source` (required) - Non-empty string
+- `companyName` - Required, non-blank string for warehouse sources (`warehouse-card-{id}-callback` and `warehouse-detail-{id}-callback`, including the legacy `-enquiry` suffix). Optional for general contact enquiries. Trimmed and stored as `company_name`; omitted or blank optional values are stored as null.
+
+Warehouse enquiry example:
+```json
+{
+  "name": "John Doe",
+  "companyName": "Example Logistics",
+  "phoneNumber": "+91-9876543210",
+  "email": "john@example.com",
+  "source": "warehouse-card-123-callback"
+}
+```
 
 **Response (201):**
 ```json
@@ -189,6 +201,7 @@ Submit a new enquiry from website visitors.
   "phoneNumber": "+91-9876543210",
   "email": "john@example.com",
   "source": "Website Contact Form",
+  "companyName": null,
   "createdat": "2024-01-15T10:30:00.000Z"
 }
 ```
@@ -197,6 +210,12 @@ Submit a new enquiry from website visitors.
 - Automatic email notification sent to admin team
 - Email failures do not affect enquiry creation
 - Enquiry is always saved to database regardless of email status
+- Company name is included in email notifications and the Sheets webhook payload.
+
+**Deploying company-name support:**
+1. Apply `scripts/sql/20260912_enquiry_company_name.sql` to add the nullable column before deploying the backend. Existing enquiries remain valid.
+2. Generate the Prisma client (`npx prisma generate`, also run by `postinstall`) and deploy the backend and updated website together. Older warehouse forms cannot submit without a company name once backend validation is active.
+3. Update the Google Apps Script from `scripts/google-sheets-webhook.gs`, preserving the deployed shared token, and publish a new deployment version. Company is appended as column G in Enquiries, leaving existing columns in place.
 
 **Error Responses:**
 - `400` - Missing or invalid required fields

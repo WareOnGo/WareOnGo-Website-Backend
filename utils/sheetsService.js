@@ -54,6 +54,7 @@ class SheetsService {
       id: enquiryData.id ?? '',
       createdAt: this.formatTimestamp(enquiryData.createdat),
       name: enquiryData.name || '',
+      companyName: enquiryData.companyName || '',
       phoneNumber: enquiryData.phoneNumber || '',
       email: enquiryData.email || '',
       source: enquiryData.source || '',

@@ -101,6 +101,7 @@ CONTACT INFORMATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Name:           ${enquiryData.name || 'N/A'}
+Company:        ${enquiryData.companyName || 'Not provided'}
 Phone:          ${enquiryData.phoneNumber || 'N/A'}
 Email:          ${enquiryData.email || 'Not provided'}
 Source:         ${enquiryData.source || 'N/A'}
