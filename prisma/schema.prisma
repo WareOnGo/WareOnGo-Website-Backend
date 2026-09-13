@@ -2,6 +2,17 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/// Fixed service URLs. Only the approved revision is exposed to website builds.
+model ServicePage {
+  slug             String   @id
+  draftContent     Json
+  publishedContent Json?
+  deployedContent  Json?
+  deployedAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
 /// Fixed legal URLs. Saving a draft never replaces the version used by builds.
 model LegalPage {
   slug             String   @id
