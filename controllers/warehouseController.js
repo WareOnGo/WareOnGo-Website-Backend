@@ -183,6 +183,7 @@ export async function getWarehouseById(req, res) {
         compliances: true,
         otherSpecifications: true,
         ratePerSqft: true,
+        createdAt: true,
         statusUpdatedAt: true,
         warehouseData: {
           select: {
@@ -234,6 +235,7 @@ export async function getWarehouseById(req, res) {
       compliances: warehouse.compliances,
       otherSpecifications: warehouse.otherSpecifications,
       ratePerSqft: warehouse.ratePerSqft,
+      createdAt: warehouse.createdAt,
       // Prisma @updatedAt (status_updated_at) — exposed as updatedAt so the
       // frontend can emit honest sitemap <lastmod> and schema dateModified.
       updatedAt: warehouse.statusUpdatedAt,
