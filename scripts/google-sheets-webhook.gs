@@ -21,6 +21,12 @@
 
 var SHARED_TOKEN = 'REPLACE_WITH_A_LONG_RANDOM_STRING';
 
+// Open the deployed Web app URL to confirm this version is serving requests.
+// This check exposes no enquiry data and does not write to the spreadsheet.
+function doGet() {
+  return jsonResponse({ version: 'enquiry-company-columns-v2' });
+}
+
 function doPost(e) {
   var payload;
   try {
@@ -39,11 +45,7 @@ function doPost(e) {
   if (payload.type === 'enquiry') {
     var sheet = getOrCreateSheet(ss, 'Enquiries',
       ['ID', 'Created At', 'Name', 'Phone', 'Email', 'Source', 'Company']);
-    // Append the new column without moving any existing enquiry columns.
-    sheet.getRange(1, 7).setValue('Company');
-    sheet.appendRow([
-      data.id, data.createdAt, data.name, data.phoneNumber, data.email, data.source, data.companyName || ''
-    ]);
+    appendEnquiryRow(sheet, data);
   } else if (payload.type === 'customer_request') {
     var sheet2 = getOrCreateSheet(ss, 'Customer Requests',
       ['ID', 'Created At', 'Full Name', 'Phone', 'Email', 'Company', 'Location', 'Comments']);
@@ -56,6 +58,58 @@ function doPost(e) {
   }
 
   return jsonResponse({ success: true });
+}
+
+// Select setupEnquirySheet in the Apps Script function dropdown and click Run
+// once to create and reveal the Company header without submitting an enquiry.
+function setupEnquirySheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getOrCreateSheet(ss, 'Enquiries',
+    ['ID', 'Created At', 'Name', 'Phone', 'Email', 'Source', 'Company']);
+  var columns = ensureEnquiryCompanyColumn(sheet);
+  ss.setActiveSheet(sheet);
+  sheet.showColumns(columns.companyIndex + 1);
+  sheet.getRange(1, columns.companyIndex + 1).activate();
+  ss.toast('Company column is ready. New warehouse enquiries will fill it.', 'Enquiries');
+}
+
+function ensureEnquiryCompanyColumn(sheet) {
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var normalizedHeaders = headers.map(function (header) {
+    return String(header).trim().toLowerCase();
+  });
+  var companyIndex = normalizedHeaders.indexOf('company');
+  if (companyIndex === -1) companyIndex = normalizedHeaders.indexOf('company name');
+  if (companyIndex === -1) {
+    companyIndex = headers.length;
+    if (companyIndex + 1 > sheet.getMaxColumns()) {
+      sheet.insertColumnAfter(sheet.getMaxColumns());
+    }
+    sheet.getRange(1, companyIndex + 1).setValue('Company');
+    headers.push('Company');
+  }
+  return { headers: headers, normalizedHeaders: normalizedHeaders, companyIndex: companyIndex };
+}
+
+function appendEnquiryRow(sheet, data) {
+  var columns = ensureEnquiryCompanyColumn(sheet);
+  var headers = columns.headers;
+  var normalizedHeaders = columns.normalizedHeaders;
+  var companyIndex = columns.companyIndex;
+
+  // Match the original fields by header; leave custom columns blank on new rows.
+  // Existing rows, including Category, Comments, Date and assignee data, stay intact.
+  var row = headers.map(function () { return ''; });
+  var fields = [
+    ['id', data.id], ['created at', data.createdAt], ['name', data.name],
+    ['phone', data.phoneNumber], ['email', data.email], ['source', data.source]
+  ];
+  fields.forEach(function (field) {
+    var index = normalizedHeaders.indexOf(field[0]);
+    if (index !== -1) row[index] = field[1] == null ? '' : field[1];
+  });
+  row[companyIndex] = data.companyName || '';
+  sheet.appendRow(row);
 }
 
 function getOrCreateSheet(ss, name, headers) {

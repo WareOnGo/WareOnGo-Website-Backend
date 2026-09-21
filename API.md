@@ -60,6 +60,8 @@ Retrieve paginated list of warehouses with filtering and caching.
 | `pageSize` | integer | Items per page (default: 10) | `?pageSize=20` |
 | `city` | string | Filter by city | `?city=Mumbai` |
 | `state` | string | Filter by state | `?state=Maharashtra` |
+| `locationMatch` | string | `exact` matches complete city/state names; default `partial` preserves existing matching | `?city=Bengaluru&locationMatch=exact` |
+| `micromarket` | string | Locality slug; requires `city` and enables exact geographic matching | `?city=Bengaluru&micromarket=hoskote` |
 | `warehouseType` | string | Filter by warehouse type | `?warehouseType=Cold Storage` |
 | `zone` | string | Filter by zone | `?zone=Industrial` |
 | `contactPerson` | string | Filter by contact person | `?contactPerson=John` |
@@ -69,8 +71,8 @@ Retrieve paginated list of warehouses with filtering and caching.
 | `maxBudget` | number | Maximum rate per sqft | `?maxBudget=200` |
 | `minClearHeight` | number | Minimum clear height | `?minClearHeight=20` |
 | `maxClearHeight` | number | Maximum clear height | `?maxClearHeight=40` |
-| `minSpace` | integer | Minimum space requirement | `?minSpace=1000` |
-| `maxSpace` | integer | Maximum space requirement | `?maxSpace=5000` |
+| `minSpace` | integer | Inclusive minimum size of an available unit, in sq ft | `?minSpace=1000` |
+| `maxSpace` | integer | Inclusive maximum size of an available unit, in sq ft | `?maxSpace=5000` |
 | `fireNocAvailable` | boolean | Fire NOC availability | `?fireNocAvailable=true` |
 | `hasCoordinates` | boolean | Only return warehouses with valid lat/long | `?hasCoordinates=true` |
 
@@ -80,6 +82,40 @@ Filters support multiple values using comma separation or multiple parameters:
 ?city=Mumbai,Delhi
 ?city=Mumbai&city=Delhi
 ```
+
+A single text value retains case-insensitive partial matching; multiple values
+use case-insensitive exact matching within that field. `locationMatch=exact`
+trims city/state whitespace and groups the existing city aliases (for example,
+Bangalore and Bengaluru). Micromarket requests always use this exact mode.
+
+**Filtering and pagination:**
+
+All filters are applied in PostgreSQL before counting and pagination. Results
+retain descending warehouse ID order. Area bounds must match the same element
+of `totalSpaceSqft`: `[5000, 100000]` does not match 10000–25000, while
+`[5000, 15000]` does. Omit `maxSpace` for an unlimited upper bound. Null and empty
+size arrays do not match an area requirement.
+
+Micromarket matching uses the same named-tag and slug rules as `/micromarkets`,
+intersected with the selected city and any other filters. It supports localities
+without a standalone page. Unknown slugs return an empty result, never an
+unfiltered search. Listing requests query the stored tags directly and do not
+fetch or rebuild the overview catalogue or its statistics.
+
+For example, page 2 of Hoskote warehouses with an available unit of at least
+50,000 sq ft:
+
+```http
+GET /warehouses?city=Bengaluru&micromarket=hoskote&minSpace=50000&page=2&pageSize=21
+```
+
+Pagination totals describe the complete matching inventory, including for an
+out-of-range page (which returns an empty `data` array). A zero-result search
+has `totalItems: 0` and `totalPages: 0`, preserving the existing response contract.
+Pages and page sizes must be positive integers; area bounds must be non-negative
+integers with `minSpace <= maxSpace`. Values and offsets must fit a signed 32-bit
+integer. Invalid parameters, malformed slugs and micromarkets without a city
+return `400` with an `error` message.
 
 **Response (200):**
 ```json
@@ -98,8 +134,7 @@ Filters support multiple values using comma separation or multiple parameters:
       "photos": ["url1.jpg", "url2.jpg"],
       "warehouseType": "General Storage",
       "zone": "Industrial",
-      "contactPerson": "John Doe",
-      "googleLocation": "https://maps.google.com/...",
+      "micromarket": ["Andheri East"],
       "latitude": 19.1136,
       "longitude": 72.8697,
       "fireNocAvailable": true,
@@ -119,6 +154,24 @@ Filters support multiple values using comma separation or multiple parameters:
 - Responses are cached for 5 minutes (configurable via `CACHE_TTL` environment variable)
 - Cache keys include all filter parameters
 - Cache automatically invalidates after TTL expires
+- The listing cache namespace is `warehouses:v5`; older incomplete area-filter
+  results cannot be reused. `Cache-Control: no-cache` bypasses reads and writes
+  for a fresh build. The page and count share a database snapshot within each
+  request; cached responses and different requests can reflect different times.
+
+Successful listing responses include `X-Wareongo-Listing-Filters: 1`, confirming
+native area, micromarket and exact-location filtering. Website builds require
+this header as well as the freshness acknowledgement; deploy this backend before
+building the new website. The header does not change response bodies or caching.
+
+**Validation:**
+
+`npm run test:warehouse-filters` requires `WAREHOUSE_FILTER_TEST_DATABASE_URL`
+pointing to a dedicated local PostgreSQL database named `wog_listing_filters`.
+The suite creates fixture tables there and covers multi-page ranges, locality
+membership parity with the overview catalogue, aliases, legacy response
+compatibility, combined filters, invalid requests, SQL parameters and caching.
+Run `npm run test:locations` and `npm run test:cache` for overview/cache regressions.
 
 ### Get Warehouse by ID
 **GET** `/warehouses/{id}`
@@ -215,7 +268,8 @@ Warehouse enquiry example:
 **Deploying company-name support:**
 1. Apply `scripts/sql/20260912_enquiry_company_name.sql` to add the nullable column before deploying the backend. Existing enquiries remain valid.
 2. Generate the Prisma client (`npx prisma generate`, also run by `postinstall`) and deploy the backend and updated website together. Older warehouse forms cannot submit without a company name once backend validation is active.
-3. Update the Google Apps Script from `scripts/google-sheets-webhook.gs`, preserving the deployed shared token, and publish a new deployment version. Company is appended as column G in Enquiries, leaving existing columns in place.
+3. Update the Google Apps Script from `scripts/google-sheets-webhook.gs`, preserving the deployed shared token, and publish a new deployment version. In Enquiries, the script reuses an existing Company / Company Name column or adds Company after the last used column. Existing custom columns and historical rows stay in place.
+4. Open the exact Web app URL configured in `SHEETS_WEBHOOK_URL`. It must return `{"version":"enquiry-company-columns-v2"}`. Saving code or running `setupEnquirySheet` alone does not update the version serving webhook requests.
 
 **Error Responses:**
 - `400` - Missing or invalid required fields
@@ -435,7 +489,7 @@ CORS_ORIGINS=https://wareongo.com,http://localhost:3000
 
 ### Cache Key Format
 ```
-warehouses:page:{page}:size:{pageSize}:filters:{filterHash}
+warehouses:v5:page:{page}:size:{pageSize}:filters:{normalizedFilters}
 ```
 
 ### Cache Considerations

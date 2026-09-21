@@ -27,7 +27,7 @@ export const MICROMARKET_MIN_LISTINGS = 5;
  */
 export const PARENT_CITY_MIN_LISTINGS = 6;
 
-const CITY_ALIASES = {
+export const CITY_ALIASES = {
   bangalore: 'Bengaluru',
   bombay: 'Mumbai',
   calcutta: 'Kolkata',

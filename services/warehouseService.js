@@ -1,5 +1,6 @@
 import prisma from '../models/prismaClient.js';
 import redisService from './redisService.js';
+import { readWarehouseQuery, warehouseQueries } from './warehouseListingQuery.js';
 
 // Blur coordinates to 2 decimal places (~1.1 km) — enough to place a listing
 // in its micro-market without revealing the exact plot.
@@ -7,99 +8,12 @@ const roundCoord = (value) =>
   typeof value === 'number' ? Math.round(value * 100) / 100 : null;
 
 class WarehouseService {
-  async getWarehouses(filters = {}, page = 1, pageSize = 10, { bypassCache = false } = {}) {
-    const skip = (page - 1) * pageSize;
-
-    // Helper function to parse multiple values (comma-separated or multiple params)
-    const parseMultiValue = (value) => {
-      if (!value) return null;
-      if (Array.isArray(value)) return value;
-      return value.includes(',') ? value.split(',').map(v => v.trim()) : [value];
-    };
-
-    // String filters supporting multiple values (OR logic within same field)
-    const filterFields = [
-      'city', 'state', 'warehouseType', 'zone', 'contactPerson', 'compliances'
-    ];
-    const dbFilters = {};
-
-    for (const field of filterFields) {
-      if (filters[field]) {
-        const values = parseMultiValue(filters[field]);
-        if (values && values.length > 1) {
-          // Multiple values: use OR logic with 'in' operator
-          dbFilters[field] = { in: values, mode: 'insensitive' };
-        } else if (values && values.length === 1) {
-          // Single value: use partial match
-          dbFilters[field] = { contains: values[0], mode: 'insensitive' };
-        }
-      }
-    }
-
-    // Special handling for address (always partial match, single value only)
-    if (filters.address) {
-      dbFilters.address = { contains: filters.address, mode: 'insensitive' };
-    }
-
-    // Numeric range filters
-    // Budget (ratePerSqft)
-    if (filters.minBudget || filters.maxBudget) {
-      dbFilters.ratePerSqft = {};
-      if (filters.minBudget) dbFilters.ratePerSqft.gte = filters.minBudget;
-      if (filters.maxBudget) dbFilters.ratePerSqft.lte = filters.maxBudget;
-    }
-
-    // Clear height
-    if (filters.minClearHeight || filters.maxClearHeight) {
-      dbFilters.clearHeightFt = {};
-      if (filters.minClearHeight) dbFilters.clearHeightFt.gte = filters.minClearHeight;
-      if (filters.maxClearHeight) dbFilters.clearHeightFt.lte = filters.maxClearHeight;
-    }
-
-    // Store space filters for post-filtering (after DB query)
-    const minSpace = filters.minSpace ? parseInt(filters.minSpace) : null;
-    const maxSpace = filters.maxSpace ? parseInt(filters.maxSpace) : null;
-
-    // Fire NOC availability filter (boolean)
-    if (filters.fireNocAvailable !== undefined) {
-      const fireNocValue = filters.fireNocAvailable === 'true' || filters.fireNocAvailable === true;
-      dbFilters.warehouseData = {
-        ...dbFilters.warehouseData,
-        fireNocAvailable: fireNocValue
-      };
-    }
-
-    // Has coordinates filter (boolean) - filter at database level for performance
-    if (filters.hasCoordinates === 'true' || filters.hasCoordinates === true) {
-      dbFilters.warehouseData = {
-        ...dbFilters.warehouseData,
-        latitude: { not: null },
-        longitude: { not: null }
-      };
-    }
-
-    // Has coordinates filter (boolean)
-    if (filters.hasCoordinates !== undefined) {
-      const hasCoordinatesValue = filters.hasCoordinates === 'true' || filters.hasCoordinates === true;
-      if (hasCoordinatesValue) {
-        dbFilters.warehouseData = {
-          ...dbFilters.warehouseData,
-          AND: [
-            { latitude: { not: null } },
-            { longitude: { not: null } }
-          ]
-        };
-      }
-    }
-
-    // Always filter out warehouses with visibility set to false
-    dbFilters.visibility = true;
-
-    // Build cache key including filters AND space filters
-    // v3: response gained `micromarket` — v2 entries would serve it as undefined.
-    // v4: gained `numberOfDocks` and `flooringType`, for the same reason.
-    const filterKey = JSON.stringify({ ...dbFilters, minSpace, maxSpace });
-    const cacheKey = `warehouses:v4:page:${page}:size:${pageSize}:filters:${filterKey}`;
+  async getWarehouses(input = {}, requestedPage = 1, requestedSize = 10, { bypassCache = false } = {}) {
+    const query = readWarehouseQuery(input, requestedPage, requestedSize);
+    const { filters, page, pageSize } = query;
+    // v5 excludes the old incomplete area-filter counts and includes exact
+    // geography and micromarket predicates. No secondary catalogue cache.
+    const cacheKey = `warehouses:v5:page:${page}:size:${pageSize}:filters:${JSON.stringify(filters)}`;
 
     // Try to get data from Redis cache first
     if (!bypassCache) {
@@ -117,53 +31,12 @@ class WarehouseService {
 
     console.log(`Cache ${bypassCache ? 'BYPASS' : 'MISS'} for key: ${cacheKey}`);
 
-    // For space filters, we need to fetch more records and filter in-memory
-    const needsSpaceFilter = minSpace !== null || maxSpace !== null;
-    const fetchSize = needsSpaceFilter ? pageSize * 3 : pageSize;
-    const fetchSkip = needsSpaceFilter ? Math.max(0, (page - 1) * pageSize * 2) : skip;
-
-    // Fetch warehouses and total count
-    const [warehouses, totalWarehouses] = await prisma.$transaction([
-      prisma.warehouse.findMany({
-        skip: fetchSkip,
-        take: fetchSize,
-        where: dbFilters,
-        orderBy: { id: 'desc' },
-        select: {
-          id: true,
-          address: true,
-          city: true,
-          state: true,
-          totalSpaceSqft: true,
-          clearHeightFt: true,
-          compliances: true,
-          otherSpecifications: true,
-          ratePerSqft: true,
-          photos: true,
-          photosWebp: true,
-          warehouseType: true,
-          zone: true,
-          micromarket: true,
-          statusUpdatedAt: true,
-          // Feed the micromarket pages' specification table. Both are free text
-          // ("8", "8-10 docks", "VDF"), so the frontend parses defensively.
-          numberOfDocks: true,
-          flooringType: true,
-          // contactPerson / googleLocation deliberately not selected — owner
-          // details and exact-pin URLs stay private (and neither is used by
-          // the frontend).
-          warehouseData: {
-            select: {
-              fireNocAvailable: true,
-              fireSafetyMeasures: true,
-              latitude: true,
-              longitude: true,
-            },
-          },
-        },
-      }),
-      prisma.warehouse.count({ where: dbFilters }),
-    ]);
+    const { rows, count } = warehouseQueries(query);
+    // Count and page observe one snapshot, including if a listing is updated
+    // between these reads. Both filter before LIMIT/OFFSET in PostgreSQL.
+    const [warehouses, [{ total: totalWarehouses }]] = await prisma.$transaction([
+      prisma.$queryRaw(rows), prisma.$queryRaw(count),
+    ], { isolationLevel: 'RepeatableRead' });
 
     // Format the warehouse data
     const parsePhotoField = (raw) => {
@@ -176,7 +49,7 @@ class WarehouseService {
       }
     };
 
-    let formattedWarehouses = warehouses.map(w => {
+    const formattedWarehouses = warehouses.map(w => {
       const parsedPhotos = parsePhotoField(w.photos);
       const parsedPhotosWebp = parsePhotoField(w.photosWebp);
       return {
@@ -184,7 +57,8 @@ class WarehouseService {
         address: w.address,
         city: w.city,
         state: w.state,
-        totalSpaceSqft: w.totalSpaceSqft,
+        // Match Prisma's scalar-list decoding for older null array columns.
+        totalSpaceSqft: w.totalSpaceSqft ?? [],
         clearHeightFt: w.clearHeightFt,
         compliances: w.compliances,
         otherSpecifications: w.otherSpecifications,
@@ -210,37 +84,12 @@ class WarehouseService {
       };
     });
 
-    // Post-filter by totalSpaceSqft array if space filters are provided
-    if (minSpace !== null || maxSpace !== null) {
-      formattedWarehouses = formattedWarehouses.filter(warehouse => {
-        const spaces = warehouse.totalSpaceSqft || [];
-        return spaces.some(space => {
-          if (minSpace !== null && maxSpace !== null) {
-            return space >= minSpace && space <= maxSpace;
-          } else if (minSpace !== null) {
-            return space >= minSpace;
-          } else if (maxSpace !== null) {
-            return space <= maxSpace;
-          }
-          return true;
-        });
-      });
-    }
-
-    // Apply pagination to filtered results
-    const startIndex = needsSpaceFilter ? (page - 1) * pageSize : 0;
-    const paginatedWarehouses = needsSpaceFilter
-      ? formattedWarehouses.slice(startIndex, startIndex + pageSize)
-      : formattedWarehouses;
-
-    // Recalculate total count if space filter was applied
-    const finalTotalCount = needsSpaceFilter ? formattedWarehouses.length : totalWarehouses;
-    const totalPages = Math.ceil(finalTotalCount / pageSize);
+    const totalPages = Math.ceil(totalWarehouses / pageSize);
 
     const responseData = {
-      data: paginatedWarehouses,
+      data: formattedWarehouses,
       pagination: {
-        totalItems: finalTotalCount,
+        totalItems: totalWarehouses,
         totalPages,
         currentPage: page,
         pageSize,

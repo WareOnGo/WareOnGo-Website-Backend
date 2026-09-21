@@ -2,6 +2,7 @@ import { requestCacheOptions } from '../utils/requestCacheOptions.js';
 import prisma from '../models/prismaClient.js';
 import { sanitizeForJSON } from '../utils/serialize.js';
 import warehouseService from '../services/warehouseService.js';
+import { WarehouseQueryError } from '../services/warehouseListingQuery.js';
 
 // Blur coordinates to 2 decimal places (~1.1 km) — enough to place a listing
 // in its micro-market without revealing the exact plot.
@@ -11,13 +12,15 @@ const roundCoord = (value) =>
 export async function getWarehouses(req, res) {
   try {
     // Pagination
-    const page = parseInt(req.query.page) || 1;
-    const pageSize = parseInt(req.query.pageSize) || 10;
+    const page = req.query.page ?? 1;
+    const pageSize = req.query.pageSize ?? 10;
 
     // Extract filters from query parameters
     const filters = {
       city: req.query.city,
       state: req.query.state,
+      micromarket: req.query.micromarket,
+      locationMatch: req.query.locationMatch,
       warehouseType: req.query.warehouseType,
       zone: req.query.zone,
       contactPerson: req.query.contactPerson,
@@ -34,8 +37,12 @@ export async function getWarehouses(req, res) {
     };
 
     const result = await warehouseService.getWarehouses(filters, page, pageSize, requestCacheOptions(req, res));
+    // SSG builds must not silently succeed against an older backend that
+    // ignores micromarket/exact-location filters or miscounts area results.
+    res.set('X-Wareongo-Listing-Filters', '1');
     res.status(200).json(result);
   } catch (error) {
+    if (error instanceof WarehouseQueryError) return res.status(400).json({ error: error.message });
     console.error('Error fetching warehouses:', error);
     res.status(500).json({ error: 'An error occurred while fetching warehouses.' });
   }

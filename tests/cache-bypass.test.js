@@ -21,8 +21,13 @@ function database(t) {
   const count = prisma.warehouse.count;
   prisma.warehouse.count = t.mock.fn(async () => 1);
   const transaction = prisma.$transaction;
+  const raw = prisma.$queryRaw;
+  prisma.$queryRaw = async statement => {
+    if (statement.text.includes('count(*)')) return [{ total: 1 }];
+    return query({ where: { visibility: true } });
+  };
   prisma.$transaction = async promises => Promise.all(promises);
-  t.after(() => { prisma.warehouse.findMany = original; prisma.warehouse.count = count; prisma.$transaction = transaction; });
+  t.after(() => { prisma.warehouse.findMany = original; prisma.warehouse.count = count; prisma.$transaction = transaction; prisma.$queryRaw = raw; });
   return query;
 }
 
@@ -96,6 +101,6 @@ test('ordinary requests do not opt out of caching or acknowledge a bypass', asyn
     const res = response();
     await getWarehouses({ headers: { 'cache-control': header }, query: {} }, res);
     assert.equal(res.code, 200);
-    assert.deepEqual(res.headers, {});
+    assert.deepEqual(res.headers, { 'X-Wareongo-Listing-Filters': '1' });
   }
 });
