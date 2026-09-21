@@ -101,6 +101,6 @@ test('ordinary requests do not opt out of caching or acknowledge a bypass', asyn
     const res = response();
     await getWarehouses({ headers: { 'cache-control': header }, query: {} }, res);
     assert.equal(res.code, 200);
-    assert.deepEqual(res.headers, { 'X-Wareongo-Listing-Filters': '1' });
+    assert.deepEqual(res.headers, { 'X-Wareongo-Listing-Filters': '2' });
   }
 });

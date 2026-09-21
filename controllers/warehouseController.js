@@ -32,14 +32,15 @@ export async function getWarehouses(req, res) {
       maxClearHeight: req.query.maxClearHeight,
       minSpace: req.query.minSpace,
       maxSpace: req.query.maxSpace,
+      spaceRanges: req.query.spaceRanges,
       fireNocAvailable: req.query.fireNocAvailable,
       hasCoordinates: req.query.hasCoordinates
     };
 
     const result = await warehouseService.getWarehouses(filters, page, pageSize, requestCacheOptions(req, res));
     // SSG builds must not silently succeed against an older backend that
-    // ignores micromarket/exact-location filters or miscounts area results.
-    res.set('X-Wareongo-Listing-Filters', '1');
+    // ignores native location filters or multi-select area/type matching.
+    res.set('X-Wareongo-Listing-Filters', '2');
     res.status(200).json(result);
   } catch (error) {
     if (error instanceof WarehouseQueryError) return res.status(400).json({ error: error.message });

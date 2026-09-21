@@ -46,6 +46,21 @@ fixtures.push(make(950, { city: 'Bengaluru', visibility: null }),
   make(951, { city: 'Bengaluru', micromarket: [' \txy\t ', 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef', 'Alipur/Budhpur', 'Alipur Budhpur'] }),
   make(952, { city: 'Bengaluru\u00a0', micromarket: ['\u00a0xy\u00a0', 'Special\u00a0Belt', 'Depot 2.0'] }),
   make(953, { city: 'Bengaluru', micromarket: null }));
+for (const [offset, warehouseType] of ['PEB + RCC', 'RCC', 'PEB', 'Shed', ''].entries()) {
+  fixtures.push(make(1100 + offset, { city: 'Type City', warehouseType }));
+}
+const choiceRows = [
+  ['PEB', [10000]], ['RCC', [25000]], ['BTS', [50000]], ['Shed', [120000]],
+  ['PEB + RCC', [10001]], ['BTS + Shed', [25001]], ['PEB', [9999, 50001]],
+  ['Land', [75000]], ['RCC', []], ['Shed', [0]], ['RCC', [15000, 75000]],
+  ['PEB', [25000, 50000]], ['PEB', [49999]], ['BTS', [24999]], ['Shed', null],
+].map(([warehouseType, totalSpaceSqft], i) => make(1200 + i, {
+  city: 'Choice City', state: 'Choice State', micromarket: ['Choice Belt'], warehouseType, totalSpaceSqft,
+}));
+fixtures.push(...choiceRows,
+  { ...choiceRows[0], id: 1250, visibility: false },
+  { ...choiceRows[0], id: 1251, state: 'Other State' },
+  { ...choiceRows[0], id: 1252, micromarket: ['Other Belt'] });
 const visible = fixtures.filter(row => row.visibility === true);
 const descending = rows => rows.map(row => row.id).sort((a, b) => b - a);
 const ids = result => result.data.map(row => row.id);
@@ -143,6 +158,73 @@ test('both inclusive area bounds apply to the same unit, including zero, open ra
   }
 });
 
+test('multiple area bands preserve gaps, open ends and unique paged results for multi-unit warehouses', async () => {
+  for (const [spaceRanges, expected] of [
+    ['0-10000,50000-', [805, 803, 802, 801]],
+    ['10000-25000,50000-', [804, 803, 802, 801]],
+    ['10000-25000,25000-50000', [804, 803, 802]],
+    ['15001-24999,25001-99999', []], // Bounds cannot match separate units.
+    ['50000-,0000-10000,0-10000', [805, 803, 802, 801]],
+  ]) {
+    const found = [];
+    for (let page = 1; page <= Math.max(1, Math.ceil(expected.length / 2)); page++) {
+      const result = await read({ city: 'Range City', locationMatch: 'exact', spaceRanges }, page, 2);
+      assert.equal(result.pagination.totalItems, expected.length, spaceRanges);
+      found.push(...ids(result));
+    }
+    assert.deepEqual(found, expected, spaceRanges);
+    assert.equal(new Set(found).size, found.length);
+  }
+  const combined = await read({ city: 'Range City', locationMatch: 'exact', spaceRanges: '0-10000,50000-', warehouseType: 'PEB,RCC' });
+  assert.equal(combined.pagination.totalItems, 0, 'area and type groups intersect');
+});
+
+test('adding a second type retains hybrid stock and returns a unique union before paging', async () => {
+  for (const [warehouseType, expected] of [
+    ['PEB', [1102, 1100]], ['RCC', [1101, 1100]],
+    ['PEB,RCC', [1102, 1101, 1100]], ['peb,Shed', [1103, 1102, 1100]],
+    [['PEB', 'RCC', 'PEB'], [1102, 1101, 1100]],
+  ]) {
+    const first = await read({ city: 'Type City', warehouseType }, 1, 2);
+    const second = await read({ city: 'Type City', warehouseType }, 2, 2);
+    assert.equal(first.pagination.totalItems, expected.length);
+    assert.deepEqual([...ids(first), ...ids(second)], expected);
+  }
+});
+
+test('all 256 type/area selections match an independent oracle, with and without Fire NOC', async () => {
+  const types = ['PEB', 'RCC', 'BTS', 'Shed'];
+  const bands = [[0, 10000], [10000, 25000], [25000, 50000], [50000, Infinity]];
+  const subset = (values, mask) => values.filter((_, index) => mask & (1 << index));
+  for (let typeMask = 0; typeMask < 16; typeMask++) {
+    for (let areaMask = 0; areaMask < 16; areaMask++) {
+      for (const fire of [false, true]) {
+        const selectedTypes = subset(types, typeMask);
+        const selectedBands = subset(bands, areaMask);
+        const expected = descending(choiceRows.filter(row =>
+          (!selectedTypes.length || selectedTypes.some(type => row.warehouseType.includes(type))) &&
+          (!selectedBands.length || row.totalSpaceSqft?.some(size => selectedBands.some(([min, max]) => size >= min && size <= max))) &&
+          (!fire || row.warehouseData?.fireNocAvailable === true)));
+        const filters = { city: 'Choice City', state: 'Choice State', micromarket: 'choice-belt',
+          ...(selectedTypes.length ? { warehouseType: selectedTypes.join(',') } : {}),
+          ...(selectedBands.length ? { spaceRanges: selectedBands.map(([min, max]) => `${min}-${Number.isFinite(max) ? max : ''}`).join(',') } : {}),
+          ...(fire ? { fireNocAvailable: true } : {}) };
+        const label = JSON.stringify(filters);
+        const found = [];
+        for (let page = 1; page <= Math.max(1, Math.ceil(expected.length / 3)); page++) {
+          const result = await read(filters, page, 3);
+          assert.equal(result.pagination.totalItems, expected.length, label);
+          assert.equal(result.pagination.totalPages, Math.ceil(expected.length / 3), label);
+          assert.deepEqual(ids(result), expected.slice((page - 1) * 3, page * 3), label);
+          found.push(...ids(result));
+        }
+        assert.deepEqual(found, expected, label);
+        assert.equal(new Set(found).size, found.length, label);
+      }
+    }
+  }
+});
+
 test('micromarket SQL matches the existing overview catalogue membership across tag spellings', async () => {
   const catalogue = await markets.getMicromarkets({ bypassCache: true });
   for (const slug of ['hoskote', 'north-belt', 'tiny-place', 'alipur-budhpur', 'special-belt', 'depot-20']) {
@@ -193,7 +275,7 @@ test('exact geography supports all city aliases and excludes partial-name collis
 test('legacy text, multi-value, boolean and coordinate filters retain their behavior', async () => {
   const filters = { warehouseType: ['PEB', 'RCC'], zone: 'North', compliances: 'ISO', contactPerson: 'OWNER',
     address: 'industrial', minBudget: '20', maxBudget: '30', minClearHeight: '25', maxClearHeight: '35', fireNocAvailable: false };
-  const expected = descending(visible.filter(row => ['PEB', 'RCC'].includes(row.warehouseType)
+  const expected = descending(visible.filter(row => ['PEB', 'RCC'].some(type => row.warehouseType?.includes(type))
     && row.zone === 'North' && row.warehouseData?.fireNocAvailable === false));
   assert.deepEqual(ids(await read(filters, 1, 1000)), expected);
   assert.deepEqual(ids(await read({ hasCoordinates: false }, 1, 1000)), descending(visible));
@@ -219,7 +301,11 @@ test('controller validates malformed requests and forwards valid micromarket que
     { minSpace: '-1' }, { minSpace: '5000.5' }, { maxSpace: '50000x' }, { minSpace: '20000', maxSpace: '10000' },
     { minSpace: ['1000', '2000'] }, { micromarket: 'hoskote' }, { city: {}, micromarket: 'hoskote' },
     { city: 'Bengaluru', micromarket: 'bad/slug' }, { locationMatch: 'fuzzy' }, { fireNocAvailable: 'maybe' },
-    { page: '2147483647', pageSize: '21' }]) {
+    { page: '2147483647', pageSize: '21' },
+    ...['-', '0-10,', '100-10', '-1-100', '0-2147483648', '0-100.5', '0-10 OR true', '0-1,1-2,2-3,3-4,4-5']
+      .map(spaceRanges => ({ spaceRanges })),
+    { spaceRanges: ['0-10000', '50000-'] }, { spaceRanges: {} }, { spaceRanges: '0-10000', minSpace: '0' },
+    { spaceRanges: '0-10000', maxSpace: '50000' }]) {
     const res = response();
     await getWarehouses({ query, headers: {} }, res);
     assert.equal(res.code, 400, JSON.stringify(query));
@@ -231,7 +317,11 @@ test('controller validates malformed requests and forwards valid micromarket que
   assert.equal(res.code, 200);
   assert.deepEqual(ids(res.body), [723]);
   assert.equal(res.headers['X-Wareongo-Cache'], 'bypass');
-  assert.equal(res.headers['X-Wareongo-Listing-Filters'], '1');
+  assert.equal(res.headers['X-Wareongo-Listing-Filters'], '2');
+  const multi = response();
+  await getWarehouses({ query: { city: 'Range City', warehouseType: 'PEB,Shed', spaceRanges: '0-10000,50000-' }, headers: {} }, multi);
+  assert.equal(multi.code, 200);
+  assert.deepEqual(ids(multi.body), [805, 803, 802, 801]);
 });
 
 test('cache includes every filter and fresh reads bypass it without consulting a catalogue cache', async t => {
@@ -240,11 +330,13 @@ test('cache includes every filter and fresh reads bypass it without consulting a
   const set = t.mock.method(redis, 'setEx', async (key, ttl, data) => { cache.set(key, data); });
   const options = [{ city: 'Bengaluru', micromarket: 'tiny-place' },
     { city: 'Bengaluru', micromarket: 'hoskote' }, { city: 'Bengaluru', minSpace: 50000 },
-    { city: 'Bengaluru', locationMatch: 'exact' }, { city: 'Bengaluru' }];
+    { city: 'Bengaluru', locationMatch: 'exact' }, { city: 'Bengaluru' },
+    { city: 'Range City', spaceRanges: '0-10000,50000-' }, { city: 'Range City', spaceRanges: '10000-25000,50000-' },
+    { city: 'Type City', warehouseType: 'PEB,RCC' }, { city: 'Type City', warehouseType: 'PEB' }];
   const originals = [];
   for (const filter of options) originals.push(await warehouses.getWarehouses(filter, 1, 21));
   assert.equal(cache.size, options.length);
-  assert.ok([...cache.keys()].every(key => key.startsWith('warehouses:v5:')));
+  assert.ok([...cache.keys()].every(key => key.startsWith('warehouses:v6:')));
   for (let i = 0; i < options.length; i++) {
     assert.deepEqual(JSON.parse(JSON.stringify(await warehouses.getWarehouses(options[i], 1, 21))), JSON.parse(JSON.stringify(originals[i])));
   }
@@ -259,6 +351,7 @@ test('filter queries leave city/state and micromarket overview data unchanged', 
   const before = await Promise.all([locations.getLocations({ bypassCache: true }), markets.getMicromarkets({ bypassCache: true })]);
   await read({ city: 'Bengaluru', micromarket: 'hoskote', minSpace: 50000 });
   await read({ state: 'Karnataka', locationMatch: 'exact' });
+  await read({ city: 'Bengaluru', warehouseType: 'PEB,RCC', spaceRanges: '0-10000,50000-' });
   const after = await Promise.all([locations.getLocations({ bypassCache: true }), markets.getMicromarkets({ bypassCache: true })]);
   assert.deepEqual(after, before);
 });

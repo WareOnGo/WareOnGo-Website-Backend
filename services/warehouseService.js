@@ -11,9 +11,9 @@ class WarehouseService {
   async getWarehouses(input = {}, requestedPage = 1, requestedSize = 10, { bypassCache = false } = {}) {
     const query = readWarehouseQuery(input, requestedPage, requestedSize);
     const { filters, page, pageSize } = query;
-    // v5 excludes the old incomplete area-filter counts and includes exact
-    // geography and micromarket predicates. No secondary catalogue cache.
-    const cacheKey = `warehouses:v5:page:${page}:size:${pageSize}:filters:${JSON.stringify(filters)}`;
+    // v6 also invalidates exact-only multi-type results now that each selected
+    // type includes hybrid stock. All area bands are part of this same key.
+    const cacheKey = `warehouses:v6:page:${page}:size:${pageSize}:filters:${JSON.stringify(filters)}`;
 
     // Try to get data from Redis cache first
     if (!bypassCache) {

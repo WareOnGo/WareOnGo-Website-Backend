@@ -58,6 +58,24 @@ export function readWarehouseQuery(input = {}, requestedPage = 1, requestedSize 
   if (filters.minSpace !== undefined && filters.maxSpace !== undefined && filters.minSpace > filters.maxSpace) {
     throw new WarehouseQueryError('minSpace must not exceed maxSpace');
   }
+  if (!absent(input.spaceRanges)) {
+    if (filters.minSpace !== undefined || filters.maxSpace !== undefined) {
+      throw new WarehouseQueryError('Use spaceRanges or minSpace/maxSpace, not both');
+    }
+    // Inclusive bands, e.g. 0-10000,50000-. An empty upper bound is unbounded.
+    const parts = text(input.spaceRanges, 'spaceRanges').split(',');
+    if (parts.length > 4) throw new WarehouseQueryError('spaceRanges supports up to four ranges');
+    const ranges = parts.map(part => {
+      const match = /^(\d+)-(\d*)$/.exec(part.trim());
+      if (!match) throw new WarehouseQueryError('spaceRanges must contain min-max ranges');
+      const min = integer(match[1], 'spaceRanges minimum', undefined, 0);
+      const max = integer(match[2], 'spaceRanges maximum', undefined, 0);
+      if (max !== undefined && min > max) throw new WarehouseQueryError('spaceRanges minimum must not exceed maximum');
+      return { min, max };
+    });
+    filters.spaceRanges = [...new Map(ranges.map(range => [`${range.min}-${range.max ?? ''}`, range])).values()]
+      .sort((a, b) => a.min - b.min || (a.max ?? Infinity) - (b.max ?? Infinity));
+  }
   for (const name of ['fireNocAvailable', 'hasCoordinates']) {
     if (absent(input[name])) continue;
     if (![true, false, 'true', 'false'].includes(input[name])) throw new WarehouseQueryError(`${name} must be true or false`);
@@ -94,6 +112,9 @@ export function warehouseWhere(filters) {
         ? Object.entries(CITY_ALIASES).filter(([, city]) => places.includes(city)).map(([alias]) => alias) : [];
       const matches = [...new Set([...places, ...aliases].map(value => value.toLowerCase().replace(/\s+/g, ' ').trim()))];
       conditions.push(Prisma.sql`${normalizedPlace(column)} IN (${Prisma.join(matches)})`);
+    } else if (name === 'warehouseType') {
+      // Each chosen type retains the single-type match, including hybrid stock.
+      conditions.push(Prisma.sql`(${Prisma.join(values.map(value => Prisma.sql`${column} ILIKE ${`%${value}%`}`), ' OR ')})`);
     } else if (values.length > 1) {
       conditions.push(Prisma.sql`lower(${column}) IN (${Prisma.join(values.map(value => value.toLowerCase()))})`);
     } else {
@@ -108,12 +129,17 @@ export function warehouseWhere(filters) {
   if (filters.fireNocAvailable !== undefined) conditions.push(Prisma.sql`d."fireNocAvailable" = ${filters.fireNocAvailable}`);
   if (filters.hasCoordinates) conditions.push(Prisma.sql`d.latitude IS NOT NULL AND d.longitude IS NOT NULL`);
 
-  if (filters.minSpace !== undefined || filters.maxSpace !== undefined) {
-    const bounds = [];
-    if (filters.minSpace !== undefined) bounds.push(Prisma.sql`space >= ${filters.minSpace}`);
-    if (filters.maxSpace !== undefined) bounds.push(Prisma.sql`space <= ${filters.maxSpace}`);
+  const ranges = filters.spaceRanges ?? (filters.minSpace !== undefined || filters.maxSpace !== undefined
+    ? [{ min: filters.minSpace, max: filters.maxSpace }] : []);
+  if (ranges.length) {
+    const matches = ranges.map(range => {
+      const bounds = [];
+      if (range.min !== undefined) bounds.push(Prisma.sql`space >= ${range.min}`);
+      if (range.max !== undefined) bounds.push(Prisma.sql`space <= ${range.max}`);
+      return Prisma.sql`(${Prisma.join(bounds, ' AND ')})`;
+    });
     conditions.push(Prisma.sql`EXISTS (
-      SELECT 1 FROM unnest(w."totalSpaceSqft") AS space WHERE ${Prisma.join(bounds, ' AND ')}
+      SELECT 1 FROM unnest(w."totalSpaceSqft") AS space WHERE ${Prisma.join(matches, ' OR ')}
     )`);
   }
   if (filters.micromarket) {
