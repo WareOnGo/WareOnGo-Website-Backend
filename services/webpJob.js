@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
-export const JOB_KEYS = ['maintenance:warehouse-webp:lock', 'maintenance:warehouse-webp:status', 'maintenance:warehouse-webp:cursor'];
+export const JOB_KEYS = [
+  'maintenance:warehouse-webp:lock',
+  'maintenance:warehouse-webp:status',
+  'maintenance:warehouse-webp:image-table-v1:cursor',
+];
 const LEASE_SECONDS = 120;
 const STATUS_SECONDS = 7 * 24 * 60 * 60;
 async function bounded(promise) {
@@ -81,7 +85,8 @@ export function createWebpJob({ getRedis, run, schedule = fn => setImmediate(fn)
       await onProgress({ cursor: startId });
       progress = await run({ startId, signal: controller.signal, onProgress });
       controller.signal.throwIfAborted();
-      const finalStatus = !progress.complete || progress.failed || progress.stale ? 'partial' : 'succeeded';
+      const unfinished = Object.entries(progress.backlog || {}).some(([state, count]) => state !== 'READY' && count > 0);
+      const finalStatus = !progress.complete || progress.failed || progress.stale || unfinished ? 'partial' : 'succeeded';
       const finished = await bounded(redis.eval(FINISH, { keys: JOB_KEYS,
         arguments: [job.jobId, JSON.stringify({ ...job, status: finalStatus, finishedAt: now(), progress }), String(STATUS_SECONDS)] }));
       if (!finished) { controller.abort(new Error('lease_lost')); controller.signal.throwIfAborted(); }

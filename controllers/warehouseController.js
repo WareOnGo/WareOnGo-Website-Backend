@@ -1,3 +1,4 @@
+import pipeline from '../services/imagePipelineRepository.cjs';
 import { requestCacheOptions } from '../utils/requestCacheOptions.js';
 import prisma from '../models/prismaClient.js';
 import { sanitizeForJSON } from '../utils/serialize.js';
@@ -186,6 +187,7 @@ export async function getWarehouseById(req, res) {
         postalCode: true,
         photos: true,
         photosWebp: true,
+        media: true,
         warehouseType: true,
         zone: true,
         compliances: true,
@@ -225,6 +227,7 @@ export async function getWarehouseById(req, res) {
     };
     const parsedPhotos = parsePhotoField(warehouse.photos);
     const parsedPhotosWebp = parsePhotoField(warehouse.photosWebp);
+    const imageMap = await new pipeline.ImagePipelineRepository(prisma).readImages([warehouse]);
 
     // Format response with parsed photos and related data (excluding contact info for privacy)
     const response = {
@@ -238,6 +241,7 @@ export async function getWarehouseById(req, res) {
       postalCode: warehouse.postalCode,
       photos: parsedPhotos,
       photosWebp: parsedPhotosWebp,
+      images: imageMap.get(warehouse.id),
       warehouseType: warehouse.warehouseType,
       zone: warehouse.zone,
       compliances: warehouse.compliances,

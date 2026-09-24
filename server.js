@@ -1,3 +1,5 @@
+import { createImageCacheRouter } from './routes/imageCacheRoutes.js';
+import imageCacheWarehouses from './services/warehouseService.js';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -73,6 +75,7 @@ app.use('/customer-requests', customerRequestRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/warehouses', warehouseRoutes);
 app.use('/cache', cacheRoutes);
+app.use('/maintenance/image-cache', createImageCacheRouter({ clearCache: () => imageCacheWarehouses.clearWarehouseCache() }));
 app.use('/maintenance/webp', createWebpRouter({ job: warehouseWebpJob, configured: webpConfigured }));
 
 // Export the app for tests

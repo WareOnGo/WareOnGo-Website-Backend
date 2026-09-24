@@ -166,7 +166,7 @@ export function warehouseQueries({ filters, page, pageSize }) {
     rows: Prisma.sql`SELECT
       w.id, w.address, w.city, w.state, w."totalSpaceSqft", w."clearHeightFt",
       w.compliances, w."otherSpecifications", w."ratePerSqft", w.photos,
-      w."photosWebp", w."warehouseType", w.zone, w.micromarket,
+      w."photosWebp", w.media, w."warehouseType", w.zone, w.micromarket,
       w.status_updated_at AS "statusUpdatedAt", w."numberOfDocks", w."flooringType",
       CASE WHEN d.id IS NULL THEN NULL ELSE json_build_object(
         'fireNocAvailable', d."fireNocAvailable", 'fireSafetyMeasures', d."fireSafetyMeasures",

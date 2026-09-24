@@ -1,7 +1,8 @@
+import { compressWebpPipeline, webpPipelineRepository } from './webpPipeline.js';
 import prisma from '../models/prismaClient.js';
 import redis from './redisService.js';
 import warehouses from './warehouseService.js';
-import { compressionConfig, createPhotoStore, compressWarehousePhotos, warehousePhotoRepository } from './webpCompression.js';
+import { compressionConfig, createPhotoStore } from './webpCompression.js';
 import { createWebpJob } from './webpJob.js';
 
 export const webpConfigured = () => {
@@ -10,10 +11,8 @@ export const webpConfigured = () => {
 
 export const warehouseWebpJob = createWebpJob({
   getRedis: () => redis.connect(),
-  run: options => compressWarehousePhotos({
-    ...options,
-    repository: warehousePhotoRepository(prisma),
-    store: createPhotoStore(compressionConfig()),
+  run: options => compressWebpPipeline({
+    ...options, repository: webpPipelineRepository(prisma), store: createPhotoStore(compressionConfig()),
     clearCache: () => warehouses.clearWarehouseCache(),
   }),
 });

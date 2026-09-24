@@ -86,6 +86,10 @@ before(async () => {
     id serial PRIMARY KEY, "warehouseId" integer UNIQUE REFERENCES "Warehouse"(id),
     "fireNocAvailable" boolean, "fireSafetyMeasures" text, latitude float8, longitude float8
   )`;
+  await prisma.$executeRaw`ALTER TABLE "Warehouse"
+    ADD COLUMN IF NOT EXISTS media jsonb,
+    ADD COLUMN IF NOT EXISTS status text,
+    ADD COLUMN IF NOT EXISTS availability text`;
   await prisma.$executeRaw`TRUNCATE "WarehouseData", "Warehouse" RESTART IDENTITY`;
   await prisma.$executeRaw(Prisma.sql`INSERT INTO "Warehouse" (
     id, city, state, visibility, "warehouseType", address, zone, compliances,
@@ -336,7 +340,7 @@ test('cache includes every filter and fresh reads bypass it without consulting a
   const originals = [];
   for (const filter of options) originals.push(await warehouses.getWarehouses(filter, 1, 21));
   assert.equal(cache.size, options.length);
-  assert.ok([...cache.keys()].every(key => key.startsWith('warehouses:v6:')));
+  assert.ok([...cache.keys()].every(key => key.startsWith('warehouses:v7-images:')));
   for (let i = 0; i < options.length; i++) {
     assert.deepEqual(JSON.parse(JSON.stringify(await warehouses.getWarehouses(options[i], 1, 21))), JSON.parse(JSON.stringify(originals[i])));
   }

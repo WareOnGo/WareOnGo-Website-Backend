@@ -1,7 +1,7 @@
 import { mkdtemp, open, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { S3Client, ListObjectsV2Command, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, ListObjectsV2Command, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { convertImageFile } from './webpImageProcess.js';
 
 const IMAGE_EXTENSIONS = /\.(?:jpe?g|png|webp|avif|gif|tiff?|bmp)$/i;
@@ -54,6 +54,18 @@ export function createPhotoStore(config, { client, fetchPhoto = fetch, requestTi
     credentials: { accessKeyId: config.accessKey, secretAccessKey: config.secret }, maxAttempts: 2 });
   return {
     publicBase: config.publicBase,
+    bucket: config.bucket,
+    version: `sharp-w${config.width}-q${config.quality}-v1`,
+    async objectMetadata(key, signal) {
+      try {
+        const object = await s3.send(new HeadObjectCommand({ Bucket: config.bucket, Key: key }),
+          { abortSignal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]) });
+        return object.ContentLength > 0 ? { bytes: object.ContentLength, modifiedAt: object.LastModified ?? null } : null;
+      } catch (error) {
+        if (error?.$metadata?.httpStatusCode === 404 || error?.name === 'NotFound') return null;
+        throw error;
+      }
+    },
     async existingKeys(signal) {
       // One paginated listing replaces thousands of daily HEAD requests, and
       // repairs DB URLs whose objects were removed from the bucket.

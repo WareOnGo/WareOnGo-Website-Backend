@@ -1,3 +1,4 @@
+import pipeline from './imagePipelineRepository.cjs';
 import prisma from '../models/prismaClient.js';
 import redisService from './redisService.js';
 import { readWarehouseQuery, warehouseQueries } from './warehouseListingQuery.js';
@@ -11,9 +12,8 @@ class WarehouseService {
   async getWarehouses(input = {}, requestedPage = 1, requestedSize = 10, { bypassCache = false } = {}) {
     const query = readWarehouseQuery(input, requestedPage, requestedSize);
     const { filters, page, pageSize } = query;
-    // v6 also invalidates exact-only multi-type results now that each selected
-    // type includes hybrid stock. All area bands are part of this same key.
-    const cacheKey = `warehouses:v6:page:${page}:size:${pageSize}:filters:${JSON.stringify(filters)}`;
+    // Separate image-aware responses from cached payloads from older releases.
+    const cacheKey = `warehouses:v7-images:page:${page}:size:${pageSize}:filters:${JSON.stringify(filters)}`;
 
     // Try to get data from Redis cache first
     if (!bypassCache) {
@@ -37,6 +37,8 @@ class WarehouseService {
     const [warehouses, [{ total: totalWarehouses }]] = await prisma.$transaction([
       prisma.$queryRaw(rows), prisma.$queryRaw(count),
     ], { isolationLevel: 'RepeatableRead' });
+
+    const imageMap = await new pipeline.ImagePipelineRepository(prisma).readImages(warehouses);
 
     // Format the warehouse data
     const parsePhotoField = (raw) => {
@@ -65,6 +67,7 @@ class WarehouseService {
         ratePerSqft: w.ratePerSqft,
         photos: parsedPhotos,
         photosWebp: parsedPhotosWebp,
+        images: imageMap.get(w.id),
         warehouseType: w.warehouseType,
         zone: w.zone,
         numberOfDocks: w.numberOfDocks,

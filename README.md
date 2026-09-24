@@ -109,12 +109,13 @@ across instances during a rolling deployment. GET reports `idle`, `queued`,
 and timestamps when available. Completion summaries also appear in Render's
 `[warehouse-webp]` logs. An accepted request does not guarantee completion.
 
-The sweep covers visible warehouse listings, reuses existing nonempty objects
-under R2's `webp/` prefix, and uploads missing WebPs (1280px maximum dimension,
-quality 75 by default). It reconstructs `photosWebp` from current original
-photos, preserving null slots and skipping videos, documents and foreign hosts.
-Concurrent photo edits cause that row's update to be skipped and retried on the
-next run. Original photos are retained. Downloads have a 30-second timeout and
+The sweep uses the shared image table automatically, prioritizing visible
+listings while also covering hidden stock. It reuses verified existing WebPs and
+uploads missing variants (1280px maximum dimension, quality 75 by default).
+New object keys include a hash of the original URL and encoder version. The
+`photosWebp` compatibility projection checks current media/photos before writing;
+originals and `Warehouse.media` are preserved. See [image pipeline notes](docs/image-pipeline.md).
+Downloads have a 30-second timeout and
 20MB cap. Originals stream to temporary files, rather than accumulating in API
 memory. Conversion runs **one photo at a time**, with a 16-million-pixel input
 cap, one Sharp thread and no Sharp operation cache. Each decoder has a 64 MiB
@@ -129,22 +130,22 @@ limit. Otherwise the API/child RSS estimate uses a 512 MiB budget. A worker
 exceeding 160 MiB RSS is terminated and that photo is retried on another day.
 Insufficient starting headroom, or reaching 75% container usage during conversion,
 pauses the sweep as `partial` with `reason: "memory_pressure"`, preserving the
-last completed warehouse cursor. These checks are sampled, not OS-enforced
+completed image results and retry state. These checks are sampled, not OS-enforced
 limits: they cannot guarantee survival of every sudden system-wide allocation.
 Images above the pixel cap use their original-image fallback.
 
-The authenticated job status now persists `activeWarehouseId`, `photoIndex`
-and `phase` before download/conversion/upload. It also includes API memory
+The authenticated job status persists `activeImageId` and `phase` before
+download/conversion/upload. It also includes API memory
 measurements; 30-second heartbeat logs carry the same diagnostic context.
 If the host kills the API without a stack trace, the last active photo remains
 visible after restart. Ordinary child crashes produce a per-photo reason such
 as `source_worker_exit_sigkill`, allowing other images to continue.
 
-Each completed warehouse is saved immediately. A Redis cursor survives job
-failure or restart; the next trigger resumes after that warehouse and wraps
-once through earlier IDs. A full sweep resets the cursor. The default work
-budget is 45 minutes; time-limited runs and individual failures report `partial`
-and retry unfinished photos on following days. Redis leases expire after two
+Each completed image is saved immediately. Per-image stage states and expiring
+claims survive job failure or restart; the next trigger retries due unfinished
+images without repeating successful conversions. The Redis image cursor is
+separate from legacy warehouse cursors. The default work budget is 45 minutes;
+time-limited runs and individual failures report `partial`. Redis leases expire after two
 minutes without a heartbeat, so a crashed worker cannot block later runs.
 The latest status expires after seven days; the cursor does not expire. Redis
 keys use `maintenance:warehouse-webp:*`, separate from warehouse response caches.
@@ -160,12 +161,11 @@ A cold start can also exceed the CMS acknowledgement timeout, which is reported
 in the CMS response. Check job status before manually retrying. Images completed
 after a website build's data fetch become available on the next daily build.
 
-The manual `scripts/compress_photos_to_webp.js` now uses the same compression
-core. It retains `--warehouse=ID`, `--limit=N`, `--start-id=ID`, `--dry-run` and
-`--force`, with `--concurrency=1..4` (default 1). This flag can parallelize I/O;
-native decoders remain serialized within a process. Unlike the HTTP sweep, the CLI
-includes hidden warehouses and does not use the Redis lease/cursor; run it as
-a separate maintenance operation. `--start-id` resumes then wraps once.
+The manual `scripts/compress_photos_to_webp.js` uses the same table-driven worker.
+Use `--warehouse=ID`, `--limit=N` or `--dry-run`. Retry state governs progress;
+force/start-id/parallel native decoding overrides are rejected. Both entry points
+include hidden stock and share per-image claims. The CLI runs as a separate
+maintenance operation without the HTTP job's Redis lease.
 
 Run `npm run test:webp` for fixture-based compression, recovery and local HTTP
 tests, including real Sharp WebP conversion. Tests never load `.env`, access
