@@ -1,6 +1,7 @@
 Both backends use `labeled_warehouse_images` automatically. There are no read or
 write feature flags to configure. Original URLs, labels and captions are preserved;
-WebP has explicit variant and processing fields, and JPEG has separate metadata.
+WebP has explicit variant and processing fields. The unused JPEG variant columns
+have been retired; original JPEG files remain untouched.
 `Warehouse.media` remains the membership/order source, with legacy `photos` as a
 fallback only when `media.images` is absent.
 
