@@ -64,7 +64,7 @@ export const canonicalState = (raw) => {
 export const slugifyCity = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
 /** Keeps '/' readable as a separator: "Alipur/Budhpur" -> "alipur-budhpur". */
-const slugifyMicromarket = (name) =>
+export const slugifyMicromarket = (name) =>
   String(name)
     .toLowerCase()
     .replace(/[\s/]+/g, '-')
@@ -98,7 +98,7 @@ export const isRealCityName = (name) => name.length > 2 && !name.includes(',');
  * Those are not places and must never become pages.
  */
 const MICROMARKET_ID_RE = /^[A-Za-z0-9]{32}$/;
-const isNamedMicromarket = (raw) => {
+export const isNamedMicromarket = (raw) => {
   const v = String(raw ?? '').trim();
   return v.length > 2 && !MICROMARKET_ID_RE.test(v);
 };
@@ -140,7 +140,7 @@ export const RATE_CEILING = 500;
  * dropped before the first in-band number is taken. Heights and docks keep
  * using firstNumber — none of these patterns show up in those columns.
  */
-const rateNumber = (raw) => {
+export const rateNumber = (raw) => {
   if (!raw) return null;
   const text = String(raw)
     .replace(/\b\d+\s*(?:st|nd|rd|th)\b/gi, ' ')

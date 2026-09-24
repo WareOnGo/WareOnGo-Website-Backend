@@ -43,7 +43,7 @@ test('cities aggregate aliases, use micromarket geography, and only compare citi
   assert.equal(result.data.cities.find(c => c.slug === 'small-town').hasPage, false);
   assert.equal(result.data.cities.find(c => c.slug === 'unknown-state-city').stateSlug, null);
   assert.ok(!result.data.states.some(s => s.slug === 'na'));
-  assert.equal(cache.mock.calls[0].arguments[0], 'locations:v1');
+  assert.equal(cache.mock.calls[0].arguments[0], 'locations:v2');
 });
 
 test('same slug in the city and state namespaces resolves to distinct inventories', async t => {

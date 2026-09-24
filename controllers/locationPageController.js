@@ -38,6 +38,12 @@ const toApiShape = (p) => ({
   specHeading: orUndefined(p.specHeading),
   specProse: orUndefined(p.specProse),
   inventoryHeading: orUndefined(p.inventoryHeading),
+  ...(p.kind === 'CITY' ? {
+    corridorHeading: orUndefined(p.corridorHeading),
+    corridorProse: orUndefined(p.corridorProse),
+    complianceHeading: orUndefined(p.complianceHeading),
+    complianceProse: orUndefined(p.complianceProse),
+  } : {}),
   faqs: p.faqs,
   relatedBlogs: p.relatedBlogs,
   statOverrides: anyOverrideSet(p.statOverrides) ? p.statOverrides : undefined,

@@ -1,5 +1,6 @@
 import prisma from '../models/prismaClient.js';
 import redisService from './redisService.js';
+import { attachCityOverviews } from './cityOverviewStats.js';
 import {
   canonicalCity,
   canonicalState,
@@ -170,7 +171,7 @@ function attachPeers(entries, spec) {
 // Bumped whenever the shape or the derivation changes, so a deploy cannot serve
 // figures computed by the previous version.
 //   v1: first release
-const CACHE_KEY = 'locations:v1';
+const CACHE_KEY = 'locations:v2';
 const CACHE_TTL_SECONDS = 600;
 
 class LocationService {
@@ -197,6 +198,9 @@ class LocationService {
         flooringType: true,
         warehouseType: true,
         compliances: true,
+        micromarket: true,
+        status: true,
+        availability: true,
         warehouseData: { select: { fireNocAvailable: true } },
       },
     });
@@ -215,6 +219,7 @@ class LocationService {
 
     attachPeers(cities, KINDS.CITY);
     attachPeers(states, KINDS.STATE);
+    attachCityOverviews(cities, listings);
 
     const payload = {
       gates: { locationPageMinListings: LOCATION_PAGE_MIN_LISTINGS },

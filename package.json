@@ -17,7 +17,7 @@
     "test:customer": "node ./scripts/test_customer_request.js",
     "test:integration": "node ./scripts/test_enquiry.js && node ./scripts/test_customer_request.js",
     "test:emailjs": "node ./scripts/test_email_simple.js",
-    "test:locations": "node tests/location-overview.test.js && node tests/micromarket-overview.test.js",
+    "test:locations": "node tests/location-overview.test.js && node tests/micromarket-overview.test.js && node tests/city-overview.test.js",
     "test:warehouse-filters": "node --test tests/warehouse-filters.test.js",
     "test:pool": "node tests/database-pool.test.js",
     "test:cache": "node tests/cache-bypass.test.js",

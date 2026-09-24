@@ -772,6 +772,11 @@ model LocationPage {
   specHeading      String?
   specProse        String?
   inventoryHeading String?
+  /// City overview sections; unused by state pages.
+  corridorHeading  String?
+  corridorProse    String?
+  complianceHeading String?
+  complianceProse  String?
   /// {q,a}[] — drives both the visible accordion and the FAQPage LD, which must
   /// stay identical for the schema to validate.
   faqs             Json
