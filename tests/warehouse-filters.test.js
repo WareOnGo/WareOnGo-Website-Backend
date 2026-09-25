@@ -340,7 +340,7 @@ test('cache includes every filter and fresh reads bypass it without consulting a
   const originals = [];
   for (const filter of options) originals.push(await warehouses.getWarehouses(filter, 1, 21));
   assert.equal(cache.size, options.length);
-  assert.ok([...cache.keys()].every(key => key.startsWith('warehouses:v7-images:')));
+  assert.ok([...cache.keys()].every(key => key.startsWith('warehouses:v8-images:')));
   for (let i = 0; i < options.length; i++) {
     assert.deepEqual(JSON.parse(JSON.stringify(await warehouses.getWarehouses(options[i], 1, 21))), JSON.parse(JSON.stringify(originals[i])));
   }

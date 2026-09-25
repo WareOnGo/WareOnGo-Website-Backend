@@ -13,7 +13,7 @@ class WarehouseService {
     const query = readWarehouseQuery(input, requestedPage, requestedSize);
     const { filters, page, pageSize } = query;
     // Separate image-aware responses from cached payloads from older releases.
-    const cacheKey = `warehouses:v7-images:page:${page}:size:${pageSize}:filters:${JSON.stringify(filters)}`;
+    const cacheKey = `warehouses:v8-images:page:${page}:size:${pageSize}:filters:${JSON.stringify(filters)}`;
 
     // Try to get data from Redis cache first
     if (!bypassCache) {
