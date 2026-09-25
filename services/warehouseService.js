@@ -1,4 +1,5 @@
 import pipeline from './imagePipelineRepository.cjs';
+import gallery from './websiteImageGallery.cjs';
 import prisma from '../models/prismaClient.js';
 import redisService from './redisService.js';
 import { readWarehouseQuery, warehouseQueries } from './warehouseListingQuery.js';
@@ -12,8 +13,8 @@ class WarehouseService {
   async getWarehouses(input = {}, requestedPage = 1, requestedSize = 10, { bypassCache = false } = {}) {
     const query = readWarehouseQuery(input, requestedPage, requestedSize);
     const { filters, page, pageSize } = query;
-    // Separate image-aware responses from cached payloads from older releases.
-    const cacheKey = `warehouses:v8-images:page:${page}:size:${pageSize}:filters:${JSON.stringify(filters)}`;
+    // Cache listing fields only. Approval/membership are re-read on every request.
+    const cacheKey = `warehouses:v9-approved-images:page:${page}:size:${pageSize}:filters:${JSON.stringify(filters)}`;
 
     // Try to get data from Redis cache first
     if (!bypassCache) {
@@ -21,7 +22,7 @@ class WarehouseService {
         const cachedData = await redisService.get(cacheKey);
         if (cachedData) {
           console.log(`Cache HIT for key: ${cacheKey}`);
-          return JSON.parse(cachedData);
+          return this.withWebsiteImages(JSON.parse(cachedData));
         }
       } catch (cacheError) {
         console.log('Cache read error:', cacheError);
@@ -38,22 +39,7 @@ class WarehouseService {
       prisma.$queryRaw(rows), prisma.$queryRaw(count),
     ], { isolationLevel: 'RepeatableRead' });
 
-    const imageMap = await new pipeline.ImagePipelineRepository(prisma).readImages(warehouses);
-
-    // Format the warehouse data
-    const parsePhotoField = (raw) => {
-      if (!raw) return [];
-      try {
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [parsed];
-      } catch {
-        return [raw];
-      }
-    };
-
     const formattedWarehouses = warehouses.map(w => {
-      const parsedPhotos = parsePhotoField(w.photos);
-      const parsedPhotosWebp = parsePhotoField(w.photosWebp);
       return {
         id: w.id,
         address: w.address,
@@ -65,9 +51,6 @@ class WarehouseService {
         compliances: w.compliances,
         otherSpecifications: w.otherSpecifications,
         ratePerSqft: w.ratePerSqft,
-        photos: parsedPhotos,
-        photosWebp: parsedPhotosWebp,
-        images: imageMap.get(w.id),
         warehouseType: w.warehouseType,
         zone: w.zone,
         numberOfDocks: w.numberOfDocks,
@@ -110,7 +93,12 @@ class WarehouseService {
       }
     }
 
-    return responseData;
+    return this.withWebsiteImages(responseData);
+  }
+
+  async withWebsiteImages(responseData) {
+    const imageMap = await new pipeline.ImagePipelineRepository(prisma).readWebsiteImages(responseData.data.map(w => w.id));
+    return { ...responseData, data: responseData.data.map(w => ({ ...w, ...gallery.publicImageFields(imageMap.get(w.id)) })) };
   }
 
   async clearWarehouseCache() {

@@ -1,4 +1,5 @@
 import pipeline from '../services/imagePipelineRepository.cjs';
+import gallery from '../services/websiteImageGallery.cjs';
 import { requestCacheOptions } from '../utils/requestCacheOptions.js';
 import prisma from '../models/prismaClient.js';
 import { sanitizeForJSON } from '../utils/serialize.js';
@@ -38,10 +39,13 @@ export async function getWarehouses(req, res) {
       hasCoordinates: req.query.hasCoordinates
     };
 
-    const result = await warehouseService.getWarehouses(filters, page, pageSize, requestCacheOptions(req, res));
+    const cacheOptions = requestCacheOptions(req, res);
+    const result = await warehouseService.getWarehouses(filters, page, pageSize, cacheOptions);
     // SSG builds must not silently succeed against an older backend that
     // ignores native location filters or multi-select area/type matching.
     res.set('X-Wareongo-Listing-Filters', '2');
+    res.set('X-Wareongo-Image-Policy', gallery.POLICY_VERSION);
+    if (!cacheOptions.bypassCache) res.set('Cache-Control', 'no-cache');
     res.status(200).json(result);
   } catch (error) {
     if (error instanceof WarehouseQueryError) return res.status(400).json({ error: error.message });
@@ -185,9 +189,6 @@ export async function getWarehouseById(req, res) {
         city: true,
         state: true,
         postalCode: true,
-        photos: true,
-        photosWebp: true,
-        media: true,
         warehouseType: true,
         zone: true,
         compliances: true,
@@ -211,23 +212,7 @@ export async function getWarehouseById(req, res) {
       return res.status(404).json({ error: 'Warehouse not found' });
     }
 
-    // Parse photos / photosWebp JSON field to array format
-    const parsePhotoField = (raw) => {
-      if (!raw) return [];
-      const trimmed = typeof raw === 'string' ? raw.trim() : raw;
-      if (typeof trimmed === 'string' && (trimmed.startsWith('[') || trimmed.startsWith('{'))) {
-        try {
-          const parsed = JSON.parse(trimmed);
-          return Array.isArray(parsed) ? parsed : [parsed];
-        } catch {
-          return [trimmed];
-        }
-      }
-      return [trimmed];
-    };
-    const parsedPhotos = parsePhotoField(warehouse.photos);
-    const parsedPhotosWebp = parsePhotoField(warehouse.photosWebp);
-    const imageMap = await new pipeline.ImagePipelineRepository(prisma).readImages([warehouse]);
+    const imageMap = await new pipeline.ImagePipelineRepository(prisma).readWebsiteImages([warehouse.id]);
 
     // Format response with parsed photos and related data (excluding contact info for privacy)
     const response = {
@@ -239,9 +224,7 @@ export async function getWarehouseById(req, res) {
       city: warehouse.city,
       state: warehouse.state,
       postalCode: warehouse.postalCode,
-      photos: parsedPhotos,
-      photosWebp: parsedPhotosWebp,
-      images: imageMap.get(warehouse.id),
+      ...gallery.publicImageFields(imageMap.get(warehouse.id)),
       warehouseType: warehouse.warehouseType,
       zone: warehouse.zone,
       compliances: warehouse.compliances,
@@ -261,6 +244,8 @@ export async function getWarehouseById(req, res) {
       fireSafetyMeasures: warehouse.warehouseData?.fireSafetyMeasures || null
     };
 
+    res.set('X-Wareongo-Image-Policy', gallery.POLICY_VERSION);
+    res.set('Cache-Control', 'no-cache');
     res.status(200).json(sanitizeForJSON(response));
   } catch (error) {
     console.error('Error fetching warehouse details:', error);

@@ -1,5 +1,6 @@
 const { randomUUID } = require('node:crypto');
 const { imageUrls, imagesForWarehouse } = require('./imageContract.cjs');
+const { selectWebsiteImages } = require('./websiteImageGallery.cjs');
 
 const STAGES = new Set(['label', 'document', 'webp']);
 const MAX_ATTEMPTS = 5;
@@ -123,6 +124,28 @@ class ImagePipelineRepository {
           WHERE l."imageUrl" IN (SELECT jsonb_array_elements_text($1::jsonb))`, JSON.stringify(urls)) : [];
         const byUrl = new Map(rows.map(row => [row.imageUrl, row]));
         return new Map(warehouses.map(w => [w.id, imagesForWarehouse(w, byUrl)]));
+    }
+
+    async readWebsiteImages(ids) {
+        const galleries = new Map(ids.map(id => [id, []]));
+        if (!ids.length) return galleries;
+        try {
+            // Membership and approval are fresh even for a cached listing page.
+            // Resolve shared URLs from current media, never the row's first owner.
+            const rows = await this.prisma.$queryRawUnsafe(`SELECT w.id AS "warehouseId", ${columns},
+              l."websiteStatus", l."websiteDecision", l."websiteQualityTier", l."websiteAssessedAt", l."websiteOverride",
+              l."websiteAssessment" - 'batchReview' - 'evidence' - 'decisionReason' - 'qualityReason' AS "websiteAssessment"
+              FROM "Warehouse" w CROSS JOIN LATERAL
+                unnest(public.wareongo_image_urls(w.media::jsonb, w.photos)) WITH ORDINALITY u(url, ord)
+              LEFT JOIN labeled_warehouse_images l ON l."imageUrl" = u.url
+              WHERE w.visibility = true AND w.id IN (SELECT value::int FROM jsonb_array_elements_text($1::jsonb))
+              ORDER BY w.id, u.ord`, JSON.stringify(ids));
+            for (const row of rows) galleries.get(row.warehouseId)?.push(row);
+            return new Map([...galleries].map(([id,images]) => [id,selectWebsiteImages(images)]));
+        } catch (error) {
+            console.error('Website image approvals unavailable; returning empty galleries', { code: error.code || error.name });
+            return new Map(ids.map(id => [id, []]));
+        }
     }
 }
 

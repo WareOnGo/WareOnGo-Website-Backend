@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { before, after, test, mock } from 'node:test';
+import pipeline from '../services/imagePipelineRepository.cjs';
 
 // This suite creates fixtures only in its dedicated local test database. It
 // deliberately cannot fall back to the application's DATABASE_URL/.env.
@@ -69,6 +70,9 @@ const array = (values, type) => values === null ? Prisma.sql`NULL`
   : values.length ? Prisma.sql`ARRAY[${Prisma.join(values)}]::${type}` : Prisma.sql`ARRAY[]::${type}`;
 
 before(async () => {
+  // This database exercises inventory filters only. The real approval query is
+  // covered by website-image integration fixtures against the image registry.
+  mock.method(pipeline.ImagePipelineRepository.prototype, 'readWebsiteImages', async ids => new Map(ids.map(id => [id, []])));
   mock.method(redis, 'get', async () => null);
   mock.method(redis, 'setEx', async () => {});
   mock.method(console, 'log', () => {});
@@ -122,8 +126,9 @@ test('unfiltered pages retain the existing inventory, descending order and publi
     assert.deepEqual(Object.fromEntries(Object.keys(expected).map(key => [key, rows[index][key]])), expected, `warehouse ${expected.id}`);
   }
   const sample = result.data.find(row => row.id === 952);
-  assert.deepEqual(sample.photos, ['photo.jpg']);
-  assert.deepEqual(sample.photosWebp, ['photo.webp']);
+  assert.deepEqual(sample.images, []);
+  assert.deepEqual(sample.photos, []);
+  assert.deepEqual(sample.photosWebp, []);
   assert.equal(sample.latitude, 12.99);
   assert.ok(!JSON.stringify(result).includes('PRIVATE'));
   assert.ok(!('warehouseData' in sample));
@@ -340,7 +345,7 @@ test('cache includes every filter and fresh reads bypass it without consulting a
   const originals = [];
   for (const filter of options) originals.push(await warehouses.getWarehouses(filter, 1, 21));
   assert.equal(cache.size, options.length);
-  assert.ok([...cache.keys()].every(key => key.startsWith('warehouses:v8-images:')));
+  assert.ok([...cache.keys()].every(key => key.startsWith('warehouses:v9-approved-images:')));
   for (let i = 0; i < options.length; i++) {
     assert.deepEqual(JSON.parse(JSON.stringify(await warehouses.getWarehouses(options[i], 1, 21))), JSON.parse(JSON.stringify(originals[i])));
   }

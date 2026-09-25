@@ -12,6 +12,9 @@ import { getMicromarkets, getMicromarket } from '../controllers/micromarketDataC
 const live = { id: 1000, city: 'Bengaluru', state: 'Karnataka', micromarket: ['North Belt'],
   totalSpaceSqft: [10000], warehouseType: 'PEB', ratePerSqft: '20', photos: null, photosWebp: null };
 function database(t) {
+  const unsafe = prisma.$queryRawUnsafe;
+  prisma.$queryRawUnsafe = async () => [];
+  t.after(() => { prisma.$queryRawUnsafe = unsafe; });
   const original = prisma.warehouse.findMany;
   const query = t.mock.fn(async options => {
     assert.deepEqual(options.where, { visibility: true });
@@ -42,7 +45,8 @@ for (const [label, read, ids] of [
     const get = t.mock.method(redis, 'get', async () => JSON.stringify(stale));
     const set = t.mock.method(redis, 'setEx', async () => { throw new Error('must not write'); });
     const del = t.mock.method(redis, 'del', async () => { throw new Error('must not evict'); });
-    assert.deepEqual(await read(), stale);
+    const expectedStale = label === 'warehouses' ? { ...stale, data: [{ id: 2027, images: [], photos: [], photosWebp: [] }] } : stale;
+    assert.deepEqual(await read(), expectedStale);
     assert.equal(query.mock.callCount(), 0);
     const result = await read({ bypassCache: true });
     assert.ok(!ids(result).includes(2027));
@@ -50,7 +54,7 @@ for (const [label, read, ids] of [
     assert.equal(get.mock.callCount(), 1, 'fresh requests never consult Redis');
     assert.equal(set.mock.callCount(), 0);
     assert.equal(del.mock.callCount(), 0);
-    assert.deepEqual(await read(), stale, 'a build must not replace visitor cache contents');
+    assert.deepEqual(await read(), expectedStale, 'a build must not replace visitor cache contents');
   });
 }
 
@@ -93,7 +97,7 @@ test('all inventory controllers acknowledge fresh reads and pass the bypass to t
   assert.equal(list.mock.callCount(), 1);
 });
 
-test('ordinary requests do not opt out of caching or acknowledge a bypass', async t => {
+test('ordinary requests keep application caching but revalidate image-bearing HTTP responses', async t => {
   t.mock.method(warehouses, 'getWarehouses', async (...args) => {
     assert.equal(args[3].bypassCache, false); return { data: [] };
   });
@@ -101,6 +105,6 @@ test('ordinary requests do not opt out of caching or acknowledge a bypass', asyn
     const res = response();
     await getWarehouses({ headers: { 'cache-control': header }, query: {} }, res);
     assert.equal(res.code, 200);
-    assert.deepEqual(res.headers, { 'X-Wareongo-Listing-Filters': '2' });
+    assert.deepEqual(res.headers, { 'X-Wareongo-Listing-Filters': '2', 'X-Wareongo-Image-Policy': 'approved-4-8-v1', 'Cache-Control': 'no-cache' });
   }
 });
