@@ -6,3 +6,4 @@ import './routes.test.js';
 import './image-process.test.js';
 
 import "./image-cache.test.js";
+import './enricher-handoff.test.js';

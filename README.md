@@ -88,80 +88,36 @@ Server runs on `http://localhost:3000`
 ## Daily warehouse WebPs
 
 The existing Supabase 02:00 IST job still calls CMS `POST /api/deploy`. The CMS
-starts the Vercel website build and this backend's `POST /maintenance/webp` in
-parallel. There is **no second cron job, database migration or new service**.
-Deploy this backend first, then the CMS. Existing R2 and Redis configuration is
-required; the CMS and backend must share the same `R2_SECRET_ACCESS_KEY`.
+starts its website build and this backend's authenticated `POST /maintenance/webp`
+in parallel. This backend now forwards WebP start/status calls to the EC2
+[warehouse enricher](https://github.com/rs0125/procurement-enrichment), using
+`https://wareongo-cronjobs.duckdns.org/maintenance/webp`.
 
-Both maintenance methods require `Authorization: Bearer <derived-token>` where
-the token is the hexadecimal HMAC-SHA256 of `wareongo:warehouse-webp-trigger:v1`
-using the trimmed R2 secret as the key. The CMS handles this automatically; it
-never sends the underlying storage credential. Missing or wrong bearer tokens
-return `401`; missing configuration or an unavailable job store returns `503`.
-The original CMS deploy-hook bearer credential remains unchanged.
+The CMS URL, schedule, response acknowledgement and scoped HMAC credential are
+preserved. The CMS, backend and enricher share the existing `R2_SECRET_ACCESS_KEY`;
+the raw credential is never transmitted. The token is HMAC-SHA256 of
+`wareongo:warehouse-webp-trigger:v1` using the trimmed key. Wrong tokens return
+401. Failed handoffs return a bounded 503 response; this backend does not start
+another local compressor as a fallback.
 
-POST returns `202` with `{ status: "accepted", jobId }` immediately after Redis
-records the job. The Express process coordinates the sweep; a short-lived child
-process converts each image, and then exits to release its native memory.
-Overlapping requests receive `{ status: "already_running", jobId }`, including
-across instances during a rolling deployment. GET reports `idle`, `queued`,
-`running`, `succeeded`, `partial`, `failed` or `interrupted`, with progress counts
-and timestamps when available. Completion summaries also appear in Render's
-`[warehouse-webp]` logs. An accepted request does not guarantee completion.
+POST returns HTTP 202 with `{ status: "accepted" | "already_running", jobId }`.
+GET returns the enricher's last persisted status and summary. Accepted means the
+run was recorded, not completed. Detailed run results now live in `CronRunLog`
+on the enricher, rather than the old Redis job-status key and Render worker logs.
 
-The sweep uses the shared image table automatically, prioritizing visible
-listings while also covering hidden stock. It reuses verified existing WebPs and
-uploads missing variants (1280px maximum dimension, quality 75 by default).
-New object keys include a hash of the original URL and encoder version. The
-`photosWebp` compatibility projection checks current media/photos before writing;
-originals and `Warehouse.media` are preserved. See [image pipeline notes](docs/image-pipeline.md).
-Downloads have a 30-second timeout and
-20MB cap. Originals stream to temporary files, rather than accumulating in API
-memory. Conversion runs **one photo at a time**, with a 16-million-pixel input
-cap, one Sharp thread and no Sharp operation cache. Each decoder has a 64 MiB
-JavaScript heap and a 30-second wall timeout. Its process exits after one image,
-releasing native allocations and fragmentation; temporary files are removed
-on success, failure or cancellation. Only the small finished WebP is read into
-the API process for upload. The R2 originals and existing WebPs remain intact.
+The enricher reuses completed WebPs, repairs missing variants after a complete
+R2 inventory, compresses serially to 1280 px / quality 75, and repairs the legacy
+`photosWebp` projection with concurrent-edit checks. Originals and `Warehouse.media`
+are retained. Per-image claims/retries survive restarts. Batches have a 45-minute
+budget and a 500-image cap. Native decoders and disk buffers run under EC2 memory
+limits. Image readers, approval filtering and original fallbacks are unchanged.
+Images completed after a website build's data fetch appear on its next build.
 
-Memory checks reserve headroom for API traffic. When container metrics are
-available, the entire container's working set is checked against its actual
-limit. Otherwise the API/child RSS estimate uses a 512 MiB budget. A worker
-exceeding 160 MiB RSS is terminated and that photo is retried on another day.
-Insufficient starting headroom, or reaching 75% container usage during conversion,
-pauses the sweep as `partial` with `reason: "memory_pressure"`, preserving the
-completed image results and retry state. These checks are sampled, not OS-enforced
-limits: they cannot guarantee survival of every sudden system-wide allocation.
-Images above the pixel cap use their original-image fallback.
+Deploy and verify the enricher first, confirm the old WebP job is idle, then
+publish this handoff. Keep both migrated crons under observation before queue
+work. See the enricher's `docs/CRON_MIGRATION.md` for cutover and rollback.
 
-The authenticated job status persists `activeImageId` and `phase` before
-download/conversion/upload. It also includes API memory
-measurements; 30-second heartbeat logs carry the same diagnostic context.
-If the host kills the API without a stack trace, the last active photo remains
-visible after restart. Ordinary child crashes produce a per-photo reason such
-as `source_worker_exit_sigkill`, allowing other images to continue.
-
-Each completed image is saved immediately. Per-image stage states and expiring
-claims survive job failure or restart; the next trigger retries due unfinished
-images without repeating successful conversions. The Redis image cursor is
-separate from legacy warehouse cursors. The default work budget is 45 minutes;
-time-limited runs and individual failures report `partial`. Redis leases expire after two
-minutes without a heartbeat, so a crashed worker cannot block later runs.
-The latest status expires after seven days; the cursor does not expire. Redis
-keys use `maintenance:warehouse-webp:*`, separate from warehouse response caches.
-Warehouse caches are cleared after updates; failed invalidation is reported
-as a warning and normal cache expiry still applies.
-
-This work runs inside the existing Render web service, so service restarts or
-hosting idle shutdowns can interrupt it. In particular, [Render free web
-services](https://render.com/docs/free) can spin down after 15 minutes without
-inbound traffic. Saved progress is recoverable on the next daily trigger;
-there is no assumption that a background promise keeps an instance awake.
-A cold start can also exceed the CMS acknowledgement timeout, which is reported
-in the CMS response. Check job status before manually retrying. Images completed
-after a website build's data fetch become available on the next daily build.
-
-The manual `scripts/compress_photos_to_webp.js` uses the same table-driven worker.
+The manual `scripts/compress_photos_to_webp.js` retains the earlier table-driven worker for explicit maintenance.
 Use `--warehouse=ID`, `--limit=N` or `--dry-run`. Retry state governs progress;
 force/start-id/parallel native decoding overrides are rejected. Both entry points
 include hidden stock and share per-image claims. The CLI runs as a separate

@@ -43,12 +43,13 @@ approval/usefulness rules). These listings keep the existing request-images stat
 rejected originals are not a fallback. This is inventory coverage, not an accuracy
 claim about model decisions.
 
-`POST /maintenance/webp` retains its existing authentication and asynchronous job
-interface. Both HTTP and the manual compression CLI use the image table and cover
-visible and hidden stock. Sharp remains serial with its existing memory, size and
-time limits. Completed results are reused, and unfinished stages retain their
-retry state. The image cursor has its own namespace; the Redis run lock remains
-shared with older jobs.
+`POST /maintenance/webp` retains its existing authentication and asynchronous
+acknowledgement, forwarding work to the warehouse enricher EC2. GET forwards its
+persisted status. The CMS nightly build trigger is unchanged. This backend no
+longer launches a compression sweep from that route. There is no local processing
+fallback on EC2 failure. The explicit compression CLI remains available for
+maintenance, with the same per-image claims. Deploy the enricher first and wait
+for any old compression job to finish before publishing the handoff.
 
 `POST /maintenance/image-cache` clears warehouse response caches. Its bearer token
 is HMAC-SHA256(R2_SECRET_ACCESS_KEY.trim(), 'wareongo:image-cache-invalidate:v1').
