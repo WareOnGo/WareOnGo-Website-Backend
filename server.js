@@ -42,6 +42,7 @@ import healthRoutes from './routes/healthRoutes.js';
 import blogRoutes from './routes/blogRoutes.js';
 import legalPageRoutes from './routes/legalPageRoutes.js';
 import servicePageRoutes from './routes/servicePageRoutes.js';
+import adPageRoutes from './routes/adPageRoutes.js';
 import micromarketRoutes from './routes/micromarketRoutes.js';
 import micromarketDataRoutes from './routes/micromarketDataRoutes.js';
 import { createWebpRouter } from './routes/webpRoutes.js';
@@ -53,6 +54,7 @@ app.use('/health', healthRoutes);
 app.use('/blogs', blogRoutes);
 app.use('/legal-pages', legalPageRoutes);
 app.use('/service-pages', servicePageRoutes);
+app.use('/ad-pages', adPageRoutes);
 // Legacy alias. The website build and any cached client still ask for /guides;
 // keeping both mounted means the rename can't half-land and break a deploy.
 // Safe to delete once nothing requests it — check the access logs first.

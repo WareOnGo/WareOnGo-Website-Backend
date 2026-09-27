@@ -24,7 +24,8 @@
     "test:pool": "node tests/database-pool.test.js",
     "test:cache": "node tests/cache-bypass.test.js",
     "test:legal": "node --test tests/legal-pages.test.js",
-    "test:services": "node --test tests/service-pages.test.js"
+    "test:services": "node --test tests/service-pages.test.js",
+    "test:ad-pages": "node --test tests/ad-pages.test.js"
   },
   "repository": {
     "type": "git",

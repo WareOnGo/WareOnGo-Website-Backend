@@ -2,6 +2,17 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/// Campaign landing pages. Drafts are private; builds use approved content.
+model AdPage {
+  slug             String   @id
+  draftContent     Json
+  publishedContent Json
+  deployedContent  Json?
+  deployedAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
 /// Fixed service URLs. Only the approved revision is exposed to website builds.
 model ServicePage {
   slug             String   @id
