@@ -4,7 +4,7 @@ The Bangalore campaign page at `/bangalore` uses the `AdPage` table. Editors
 manage it in the CMS under **Ad pages → Bangalore**. The existing page layout,
 contact forms, listing selection, size filters and map interactions stay in the
 website. Copy, figures, area recommendations, service and audience cards, CTA
-labels and 30 listing photos are editable in the CMS.
+labels and page photos are editable in the CMS.
 
 ## Initial rollout
 
@@ -19,11 +19,12 @@ labels and 30 listing photos are editable in the CMS.
    Bangalore content. Re-running it never replaces existing CMS edits. Never run
    schema push or migrations from the CMS's partial Prisma schema.
 2. Deploy the backend with `GET /ad-pages` before building the website.
-3. Generate the CMS Prisma client and deploy the CMS editor.
-4. Build the website normally. `scripts/generate-ad-pages.mjs` fetches approved
+3. Build and deploy the website. `scripts/generate-ad-pages.mjs` fetches approved
    content into `src/data/adPages.generated.ts` before prerendering. It fails the
    build if the endpoint, page or required content is missing; it never silently
    substitutes the initial import over an editor's changes.
+4. Generate the CMS Prisma client and deploy the CMS editor after the website's
+   `/preview/ad-pages/bangalore` route is available.
 
 No new environment variable or scheduled job is required. The existing shared
 database, upload service and website build hook are used. The website continues
@@ -44,12 +45,21 @@ to mark this campaign URL `noindex`.
   committed save is acknowledged without rewriting the record. Build snapshots
   preserve the content revision timestamp and skip rows edited since their read.
 
-The CMS has a read-only content preview and the existing image uploader. The
-preview shows editorial content; catalogue facts, map geometry and the exact
-responsive website layout remain owned by the website. Warehouse details and
-micromarket counts are not manually editable through this section. The original
-`[X]` placeholders and blank benefit descriptions are retained for editors to
-complete.
+The CMS preview embeds the website's real renderer, including unsaved edits,
+with desktop, mobile and full-screen controls. Draft content stays in browser
+memory; links, form submissions and analytics are disabled in the preview.
+`WEBSITE_PREVIEW_ORIGIN` optionally selects a local website server; production
+defaults to `https://wareongo.com`. Warehouse details and micromarket counts are
+not manually editable through this section. Remaining overview placeholders and
+blank benefit descriptions are retained for editors to complete.
+
+The hero uses four editable process steps in place of its earlier introduction
+and figures. The shared content reader supplies those steps for older saved
+revisions and drops the removed fields. No database rewrite is needed.
+
+“Why choose WareOnGo” uses six benefit cards and a section image. Older revisions
+retain their three existing benefits and gain the new placeholder cards and image
+when read. All six titles, descriptions and the image are editable in the CMS.
 
 The first version supports the existing Bangalore template. Adding a new ad page
 requires a route/template, a registered slug, its initial content and a database

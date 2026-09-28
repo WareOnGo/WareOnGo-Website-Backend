@@ -7,7 +7,6 @@
     "metaDescription": "Explore warehouse spaces in Bangalore with WareOnGo.",
     "heroHeading": "Warehouses for rent",
     "heroAccent": "in Bangalore.",
-    "heroIntro": "Tell us the size, area and move-in date you need. We send you warehouses from our verified Bangalore listings, set up the site visits, and handle the deal end-to-end. We only get paid when you close.",
     "enquiryEyebrow": "Get in touch",
     "enquiryHeading": "Find your warehouse",
     "enquiryDescription": "Share your details. We’ll help you find a space in Bangalore.",
@@ -51,19 +50,11 @@
     "contactDescription": "Share your details, and we'll get back to you!",
     "contactSuccess": "We will reach out within 2 hours."
   },
-  "heroPoints": [
-    {
-      "value": "611",
-      "label": "live Bangalore listings"
-    },
-    {
-      "value": "[X]",
-      "label": "Bangalore deals closed"
-    },
-    {
-      "value": "20%",
-      "label": "rent saved, through better negotiation and market knowledge"
-    }
+  "heroSteps": [
+    "Enquire",
+    "Visit",
+    "Sign",
+    "Move In"
   ],
   "benefits": [
     {
@@ -80,31 +71,46 @@
       "id": "lease",
       "title": "Lease support",
       "body": ""
+    },
+    {
+      "id": "benefit-4",
+      "title": "Benefit 4",
+      "body": ""
+    },
+    {
+      "id": "benefit-5",
+      "title": "Benefit 5",
+      "body": ""
+    },
+    {
+      "id": "benefit-6",
+      "title": "Benefit 6",
+      "body": ""
     }
   ],
   "services": [
     {
       "id": "find-warehouse",
       "title": "Find a warehouse",
-      "body": "We shortlist from our verified Bangalore listings against your size, location, specs and budget, and share options within 4 hours.",
+      "body": "Verified Bangalore spaces matched to your needs within 4 hours.",
       "cta": "Find my warehouse"
     },
     {
       "id": "build-to-suit",
       "title": "Build to suit",
-      "body": "If the building you need doesn’t exist yet, we match you with land and an owner who will build to your specification.",
+      "body": "We find land and owners to build to your specifications.",
       "cta": "Start a build to suit"
     },
     {
       "id": "list-space",
       "title": "Find a tenant or buyer",
-      "body": "Own a warehouse, or have space left over? We bring you tenants and buyers from the businesses that come to us.",
+      "body": "Find tenants or buyers for your warehouse or spare space.",
       "cta": "List my space"
     },
     {
       "id": "transaction-management",
       "title": "End-to-end transaction management",
-      "body": "Site visits, negotiation, documentation and compliance checks, handled by one team until you move in.",
+      "body": "Visits, negotiation, paperwork and compliance, managed through move-in.",
       "cta": "Get started"
     }
   ],
@@ -378,6 +384,12 @@
       "alt": "Warehouse exterior near Jigani, Bangalore",
       "width": 900,
       "height": 675
+    },
+    "why": {
+      "url": "/bangalore/available-1121.webp",
+      "alt": "Bright warehouse interior with polished floors in Dobbaspet, Bangalore",
+      "width": 800,
+      "height": 450
     }
   }
 }

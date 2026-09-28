@@ -26,7 +26,23 @@ export function parseAdPage(value, { draft = false } = {}) {
     // never copied into the public endpoint or generated website snapshot.
     return Object.fromEntries(Object.entries(example).map(([key, child]) => [key, read(input[key], child, path ? `${path}.${key}` : key)]));
   }
-  const page = read(value, defaults, '');
+  // Add new template slots to older saved revisions without overwriting edits
+  // or rewriting drafts/approved records in the database.
+  let compatible = value;
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const legacyBenefits = Array.isArray(value.benefits) && value.benefits.length === 3
+      && value.benefits.every(item => ['verified', 'local', 'lease'].includes(item?.id));
+    const images = value.images && typeof value.images === 'object' && !Array.isArray(value.images) && value.images.why === undefined
+      ? { ...value.images, why: defaults.images.why } : value.images;
+    compatible = {
+      ...value,
+      heroSteps: value.heroSteps === undefined ? defaults.heroSteps : value.heroSteps,
+      benefits: legacyBenefits ? [...value.benefits, ...defaults.benefits.slice(3)] : value.benefits,
+      images,
+    };
+  }
+  const page = read(compatible, defaults, '');
+  if (page.heroSteps.length !== 4) fail('heroSteps', 'Keep the four process steps.');
   if (page.version !== 1 || page.slug !== 'bangalore') fail('page', 'Unknown ad page or content version.');
   for (const group of ['benefits', 'services', 'audiences']) {
     const actual = page[group].map(item => item.id).sort();
@@ -46,10 +62,11 @@ export function parseAdPage(value, { draft = false } = {}) {
     if (!draft && !image.alt.trim()) fail(`images.${slot}.alt`, 'Describe the image.');
   }
   if (!draft) {
-    const required = ['seoTitle', 'metaDescription', 'heroHeading', 'heroAccent', 'heroIntro', 'enquiryHeading', 'enquiryDescription', 'enquirySubmit', 'enquirySuccessHeading', 'enquirySuccessDescription', 'enquirySuccessCta', 'featuredHeading', 'availableHeading', 'filterAll', 'filterSmall', 'filterMedium', 'filterLarge', 'availableFooter', 'availableCta', 'locationsHeading', 'locationsCta', 'mapLabel', 'areaHeading', 'areaNeedHeading', 'areaLocationsHeading', 'whyHeading', 'requestHeading', 'requestDescription', 'requestCta', 'requestPhoneCta', 'servicesHeading', 'audiencesHeading', 'overviewHeading', 'statsHeading', 'statsLocationsHeading', 'statsRentHeading', 'statsInventoryHeading', 'statsSpecificationsHeading', 'statsCityHeading', 'contactHeading', 'contactDescription', 'contactSuccess'];
+    const required = ['seoTitle', 'metaDescription', 'heroHeading', 'heroAccent', 'enquiryHeading', 'enquiryDescription', 'enquirySubmit', 'enquirySuccessHeading', 'enquirySuccessDescription', 'enquirySuccessCta', 'featuredHeading', 'availableHeading', 'filterAll', 'filterSmall', 'filterMedium', 'filterLarge', 'availableFooter', 'availableCta', 'locationsHeading', 'locationsCta', 'mapLabel', 'areaHeading', 'areaNeedHeading', 'areaLocationsHeading', 'whyHeading', 'requestHeading', 'requestDescription', 'requestCta', 'requestPhoneCta', 'servicesHeading', 'audiencesHeading', 'overviewHeading', 'statsHeading', 'statsLocationsHeading', 'statsRentHeading', 'statsInventoryHeading', 'statsSpecificationsHeading', 'statsCityHeading', 'contactHeading', 'contactDescription', 'contactSuccess'];
     if (!page.name.trim()) fail('name', 'Add a page name.');
     for (const key of required) if (!page.copy[key].trim()) fail(`copy.${key}`, 'Add this text before saving for the next build.');
-    for (const group of ['heroPoints', 'overviewStats']) {
+    if (page.heroSteps.some(step => !step.trim())) fail('heroSteps', 'Name each process step before saving for the next build.');
+    for (const group of ['overviewStats']) {
       if (page[group].length < 1 || page[group].length > 8) fail(group, 'Use one to eight figures.');
       for (const item of page[group]) if (!item.value.trim() || !item.label.trim()) fail(group, 'Give every figure a value and label.');
     }

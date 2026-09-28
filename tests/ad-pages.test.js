@@ -30,10 +30,24 @@ for (const [name, rows] of [['missing seed', []], ['missing approved version', [
 }
 test('content validation permits imported placeholders and complete typed content', () => {
   assert.deepEqual(parseAdPage(page), page);
-  assert.equal(parseAdPage(page).heroPoints[1].value, '[X]');
+  assert.deepEqual(parseAdPage(page).heroSteps, ['Enquire', 'Visit', 'Sign', 'Move In']);
   assert.throws(() => parseAdPages([page, page]), /missing/);
   for (const url of ['javascript:alert(1)', '//unsafe.example/image.webp', 'http://unsafe.example/image.webp', 'https://user:password@example.test/a.webp']) {
     const bad = structuredClone(page); bad.images.services.url = url;
     assert.throws(() => parseAdPage(bad), /HTTPS/);
   }
+});
+
+test('older approved content gains process steps without a database rewrite', () => {
+  const older = structuredClone(page);
+  delete older.heroSteps;
+  older.benefits = older.benefits.slice(0, 3);
+  delete older.images.why;
+  older.copy.heroIntro = 'Previous introduction';
+  older.heroPoints = [{ value: '611', label: 'live listings' }];
+  assert.deepEqual(parseAdPage(older), page);
+  assert.equal(older.heroSteps, undefined);
+  assert.equal(older.benefits.length, 3);
+  assert.equal(older.images.why, undefined);
+  assert.throws(() => parseAdPage({ ...page, heroSteps: ['Enquire', '', 'Sign', 'Move In'] }), /Name each process step/);
 });
