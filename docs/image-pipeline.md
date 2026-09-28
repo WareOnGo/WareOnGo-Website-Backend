@@ -5,8 +5,9 @@ JPEG files remain untouched.
 `Warehouse.media` remains the membership/order source, with legacy `photos` as a
 fallback only when `media.images` is absent.
 
-Deploy the compatible dashboard backend before this backend so pending images have
-a label worker that understands stage states. The shared Supabase schema is already
+Keep the enrichment EC2 worker deployed before enabling processing triggers.
+The dashboard registers pending images and reads labels; it no longer runs a
+scheduled label/approval/proximity worker. The shared Supabase schema is already
 applied. Public list/detail responses select approved photos using the website
 fields in that same table. They include at most eight useful T1/T2 photos, aiming
 for an indoor/outdoor balance using the original scene classifications. Approved
@@ -47,7 +48,9 @@ claim about model decisions.
 acknowledgement, forwarding work to the warehouse enricher EC2. GET forwards its
 persisted status. The CMS nightly build trigger is unchanged. This backend no
 longer launches a compression sweep from that route. There is no local processing
-fallback on EC2 failure. The explicit compression CLI remains available for
+fallback on EC2 failure. The unused Redis HTTP job runner and older
+photo-column-only compressor have been removed. The explicit table-driven
+compression CLI remains available for
 maintenance, with the same per-image claims. Deploy the enricher first and wait
 for any old compression job to finish before publishing the handoff.
 

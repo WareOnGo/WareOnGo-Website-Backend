@@ -121,12 +121,14 @@ The manual `scripts/compress_photos_to_webp.js` retains the earlier table-driven
 Use `--warehouse=ID`, `--limit=N` or `--dry-run`. Retry state governs progress;
 force/start-id/parallel native decoding overrides are rejected. Both entry points
 include hidden stock and share per-image claims. The CLI runs as a separate
-maintenance operation without the HTTP job's Redis lease.
+maintenance operation. The unused Redis HTTP job runner and earlier
+photo-column-only compressor have been removed; scheduled runs are owned by EC2.
 
 Run `npm run test:webp` for fixture-based compression, recovery and local HTTP
 tests, including real Sharp WebP conversion. Tests never load `.env`, access
-production data or upload to R2. Redis locking uses an in-memory model in this
-suite; it does not require a live Redis instance.
+production data or upload to R2. The HTTP tests verify forwarding to the
+enricher, duplicate acknowledgements and persisted status without a local job
+runner or Redis lease.
 
 For a local memory replay, run
 `node tests/webp/memory-replay.mjs /path/to/manifest.json`, where the manifest is
@@ -136,8 +138,9 @@ The 2026-09-09 replay of warehouse 983's 18 real 12MP JPEGs completed 144
 conversions: the old in-process implementation peaked at 747.4 MiB; the new
 implementation sampled 216.6 MiB combined (222.6 MiB when adding the separate
 process peaks conservatively). The replay excludes live API traffic and used
-a larger local host, not a kernel-enforced 512 MiB container. Render verification
-is still required after deploying this change. Sharp documents its Linux
+a larger local host, not a kernel-enforced 512 MiB container. These historical
+measurements describe the retained local maintenance encoder; production
+compression now runs under the EC2 worker's resource limits. Sharp documents its Linux
 [allocator fragmentation risk](https://sharp.pixelplumbing.com/install/#linux-memory-allocator)
 and [cache/concurrency controls](https://sharp.pixelplumbing.com/api-utility/).
 

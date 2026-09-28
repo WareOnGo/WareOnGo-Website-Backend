@@ -4,8 +4,7 @@ import { once } from 'node:events';
 import { createHmac } from 'node:crypto';
 import express from 'express';
 import { createWebpRouter, compressionToken } from '../../routes/webpRoutes.js';
-import { createWebpJob } from '../../services/webpJob.js';
-import { memoryRedis } from './job.test.js';
+import { createEnricherWebpJob } from '../../services/enricherWebpJob.js';
 
 const secret = 'fake-r2-secret-for-tests-only';
 const authorization = `Bearer ${createHmac('sha256', secret).update('wareongo:warehouse-webp-trigger:v1').digest('hex')}`;
@@ -69,29 +68,23 @@ test('HTTP: job-store errors produce bounded public errors without leaking upstr
   }
 });
 
-test('HTTP integration: the Express worker completes after acknowledgement and overlapping triggers reuse its job', async t => {
-  const redis = memoryRedis();
-  let release;
-  const gate = new Promise(resolve => { release = resolve; });
-  t.after(() => release());
-  let completion;
-  const job = createWebpJob({ getRedis: async () => redis,
-    schedule: fn => { setImmediate(() => { completion = fn(); }); },
-    run: async ({ onProgress }) => {
-      await gate;
-      const progress = { cursor: 0, scanned: 1, updated: 1, complete: true, failed: 0, stale: 0 };
-      await onProgress(progress); return progress;
-    }, log: { info() {}, error() {} } });
+test('HTTP integration forwards acknowledgement, duplicate and status to the EC2 worker', async t => {
+  const responses = [
+    { status: 'accepted', jobId: '42' },
+    { status: 'already_running', jobId: '42' },
+    { status: 'SUCCESS', jobId: '42', progress: { executor: 'warehouse-enricher', ready: 1 } },
+  ];
+  const calls = [];
+  const job = createEnricherWebpJob({ secret: () => secret, request: async (url, options) => {
+    calls.push({ url, method: options.method });
+    assert.equal(options.headers.authorization, authorization);
+    return Response.json(responses.shift(), { status: options.method === 'POST' ? 202 : 200 });
+  } });
   const h = await server(t, { job });
-  const first = await h.request();
-  assert.equal(first.status, 202);
-  const accepted = await first.json();
-  assert.equal(accepted.status, 'accepted');
-  const duplicate = await h.request();
-  assert.equal(duplicate.status, 202);
-  assert.deepEqual(await duplicate.json(), { status: 'already_running', jobId: accepted.jobId });
-  release(); await completion;
-  const result = await (await h.request('GET')).json();
-  assert.equal(result.status, 'succeeded');
-  assert.equal(result.progress.updated, 1);
+  assert.deepEqual(await (await h.request()).json(), { status: 'accepted', jobId: '42' });
+  assert.deepEqual(await (await h.request()).json(), { status: 'already_running', jobId: '42' });
+  assert.deepEqual(await (await h.request('GET')).json(),
+    { status: 'SUCCESS', jobId: '42', progress: { executor: 'warehouse-enricher', ready: 1 } });
+  assert.deepEqual(calls.map(call => call.method), ['POST', 'POST', 'GET']);
+  assert.ok(calls.every(call => call.url === 'https://wareongo-cronjobs.duckdns.org/maintenance/webp'));
 });

@@ -1,9 +1,9 @@
 import { compressWebpPipeline, webpPipelineRepository } from '../services/webpPipeline.js';
 import warehouses from '../services/warehouseService.js';
 /**
- * Manual entry point for the same compression service the nightly CMS trigger
- * runs. Supported flags: --warehouse=ID --limit=N --dry-run. Both entry points
- * use the shared image table and cover hidden stock too. Retry states govern
+ * Explicit local maintenance entry point. Nightly processing runs on EC2.
+ * Supported flags: --warehouse=ID --limit=N --dry-run. This CLI uses the shared
+ * image table and covers hidden stock too. Retry states govern
  * progress; force/start-id/parallel native decoding overrides are rejected.
  * No automatic CLI side effects occur when this module is imported.
  */
