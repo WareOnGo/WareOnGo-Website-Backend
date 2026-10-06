@@ -17,6 +17,7 @@ const toApiShape = (g) => ({
   // Omitted rather than sent as null when unset, like `published` — the
   // website's generator drops undefined keys, so the emitted module stays clean.
   author: g.author ?? undefined,
+  thumbnail: g.thumbnail ?? undefined,
   published: asIsoDate(g.datePublished),
   updated: asIsoDate(g.dateModified),
   keywords: g.keywords,

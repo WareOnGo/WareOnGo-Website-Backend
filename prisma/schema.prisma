@@ -663,6 +663,8 @@ model Blog {
   /// Person); null falls back to the WareOnGo organisation, which is what every
   /// blog did before this column existed.
   author          String?
+  /// Optional blog-card image: {url, alt, width, height}. Null uses site defaults.
+  thumbnail       Json?
 
   @@index([status, sortOrder])
 }

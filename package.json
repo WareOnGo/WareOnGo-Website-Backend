@@ -5,6 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "test:blogs": "node --test tests/blogs.test.js",
     "postinstall": "npx prisma generate",
     "start": "node server.js",
     "test": "node tests/enquiry-notification.test.js",
