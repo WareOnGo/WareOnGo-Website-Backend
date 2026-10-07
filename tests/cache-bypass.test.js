@@ -105,6 +105,6 @@ test('ordinary requests keep application caching but revalidate image-bearing HT
     const res = response();
     await getWarehouses({ headers: { 'cache-control': header }, query: {} }, res);
     assert.equal(res.code, 200);
-    assert.deepEqual(res.headers, { 'X-Wareongo-Listing-Filters': '2', 'X-Wareongo-Image-Policy': 'approved-4-8-v1', 'Cache-Control': 'no-cache' });
+    assert.deepEqual(res.headers, { 'X-Wareongo-Listing-Filters': '3', 'X-Wareongo-Image-Policy': 'approved-4-8-v1', 'Cache-Control': 'no-cache' });
   }
 });

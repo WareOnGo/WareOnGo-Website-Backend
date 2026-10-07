@@ -22,6 +22,7 @@
     "test:emailjs": "node ./scripts/test_email_simple.js",
     "test:locations": "node tests/location-overview.test.js && node tests/micromarket-overview.test.js && node tests/city-overview.test.js",
     "test:warehouse-filters": "node --test tests/warehouse-filters.test.js",
+    "test:warehouse-cutoff": "node tests/warehouse-cutoff.test.js",
     "test:pool": "node tests/database-pool.test.js",
     "test:cache": "node tests/cache-bypass.test.js",
     "test:legal": "node --test tests/legal-pages.test.js",

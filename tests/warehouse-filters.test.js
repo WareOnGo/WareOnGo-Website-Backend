@@ -154,6 +154,33 @@ test('area filtering traverses more than 500 matches with stable totals, no gaps
   assert.equal(beyond.pagination.totalItems, expected.length);
 });
 
+test('maxId excludes new inventory before counting and paging, including combined location filters', async () => {
+  for (const filters of [{ maxId: 600 }, { maxId: 1 }, { maxId: 952 },
+    { maxId: 400, city: 'Bangalore', state: 'Karnataka', micromarket: 'hoskote',
+      warehouseType: 'RCC', fireNocAvailable: true, minSpace: 50100 }]) {
+    const eligible = visible.filter(row => row.id <= filters.maxId && (!filters.city ||
+      (canonicalCity(row.city) === 'Bengaluru' && row.state === 'Karnataka' && row.warehouseType === 'RCC'
+        && row.warehouseData?.fireNocAvailable === true && row.totalSpaceSqft?.some(size => size >= 50100))));
+    const expected = descending(eligible);
+    const found = [];
+    const totalPages = Math.ceil(expected.length / 21);
+    for (let page = 1; page <= totalPages + 1; page++) {
+      const result = await read(filters, page);
+      assert.deepEqual(result.pagination, { currentPage: page, pageSize: 21, totalPages, totalItems: expected.length });
+      assert.deepEqual(ids(result), expected.slice((page - 1) * 21, page * 21));
+      found.push(...ids(result));
+    }
+    assert.deepEqual(found, expected);
+  }
+  const empty = await read({ maxId: 600, city: 'Delhi', locationMatch: 'exact' });
+  assert.deepEqual(ids(empty), []);
+  assert.equal(empty.pagination.totalItems, 0);
+  const res = response();
+  await getWarehouses({ query: { maxId: '600', pageSize: '21' }, headers: { 'cache-control': 'no-cache' } }, res);
+  assert.equal(res.code, 200);
+  assert.deepEqual(ids(res.body), descending(visible.filter(row => row.id <= 600)).slice(0, 21));
+});
+
 test('both inclusive area bounds apply to the same unit, including zero, open ranges and empty arrays', async () => {
   for (const [range, expected] of [
     [{ minSpace: 10000, maxSpace: 25000 }, [804, 803, 802]],
@@ -201,36 +228,89 @@ test('adding a second type retains hybrid stock and returns a unique union befor
   }
 });
 
-test('all 256 type/area selections match an independent oracle, with and without Fire NOC', async () => {
-  const types = ['PEB', 'RCC', 'BTS', 'Shed'];
-  const bands = [[0, 10000], [10000, 25000], [25000, 50000], [50000, Infinity]];
-  const subset = (values, mask) => values.filter((_, index) => mask & (1 << index));
-  for (let typeMask = 0; typeMask < 16; typeMask++) {
-    for (let areaMask = 0; areaMask < 16; areaMask++) {
-      for (const fire of [false, true]) {
-        const selectedTypes = subset(types, typeMask);
-        const selectedBands = subset(bands, areaMask);
-        const expected = descending(choiceRows.filter(row =>
-          (!selectedTypes.length || selectedTypes.some(type => row.warehouseType.includes(type))) &&
-          (!selectedBands.length || row.totalSpaceSqft?.some(size => selectedBands.some(([min, max]) => size >= min && size <= max))) &&
-          (!fire || row.warehouseData?.fireNocAvailable === true)));
-        const filters = { city: 'Choice City', state: 'Choice State', micromarket: 'choice-belt',
-          ...(selectedTypes.length ? { warehouseType: selectedTypes.join(',') } : {}),
-          ...(selectedBands.length ? { spaceRanges: selectedBands.map(([min, max]) => `${min}-${Number.isFinite(max) ? max : ''}`).join(',') } : {}),
-          ...(fire ? { fireNocAvailable: true } : {}) };
-        const label = JSON.stringify(filters);
-        const found = [];
-        for (let page = 1; page <= Math.max(1, Math.ceil(expected.length / 3)); page++) {
-          const result = await read(filters, page, 3);
-          assert.equal(result.pagination.totalItems, expected.length, label);
-          assert.equal(result.pagination.totalPages, Math.ceil(expected.length / 3), label);
-          assert.deepEqual(ids(result), expected.slice((page - 1) * 3, page * 3), label);
-          found.push(...ids(result));
+for (const maxId of [undefined, 1199, 1200, 1206, 1214]) {
+  test(`all 768 type/area/Fire NOC selections match an independent oracle at cutoff ${maxId ?? 'none'}`, async () => {
+    const types = ['PEB', 'RCC', 'BTS', 'Shed'];
+    const bands = [[0, 10000], [10000, 25000], [25000, 50000], [50000, Infinity]];
+    const subset = (values, mask) => values.filter((_, index) => mask & (1 << index));
+    for (let typeMask = 0; typeMask < 16; typeMask++) {
+      for (let areaMask = 0; areaMask < 16; areaMask++) {
+        for (const fire of [undefined, false, true]) {
+          const selectedTypes = subset(types, typeMask);
+          const selectedBands = subset(bands, areaMask);
+          const expected = descending(choiceRows.filter(row =>
+            (maxId === undefined || row.id <= maxId) &&
+            (!selectedTypes.length || selectedTypes.some(type => row.warehouseType.includes(type))) &&
+            (!selectedBands.length || row.totalSpaceSqft?.some(size => selectedBands.some(([min, max]) => size >= min && size <= max))) &&
+            (fire === undefined || row.warehouseData?.fireNocAvailable === fire)));
+          const filters = { city: 'Choice City', state: 'Choice State', micromarket: 'choice-belt',
+            ...(maxId === undefined ? {} : { maxId }),
+            ...(selectedTypes.length ? { warehouseType: selectedTypes.join(',') } : {}),
+            ...(selectedBands.length ? { spaceRanges: selectedBands.map(([min, max]) => `${min}-${Number.isFinite(max) ? max : ''}`).join(',') } : {}),
+            ...(fire === undefined ? {} : { fireNocAvailable: fire }) };
+          const label = JSON.stringify(filters);
+          const found = [];
+          for (let page = 1; page <= Math.ceil(expected.length / 3) + 1; page++) {
+            const result = await read(filters, page, 3);
+            assert.equal(result.pagination.totalItems, expected.length, label);
+            assert.equal(result.pagination.totalPages, Math.ceil(expected.length / 3), label);
+            assert.deepEqual(ids(result), expected.slice((page - 1) * 3, page * 3), label);
+            found.push(...ids(result));
+          }
+          assert.deepEqual(found, expected, label);
+          assert.equal(new Set(found).size, found.length, label);
         }
-        assert.deepEqual(found, expected, label);
-        assert.equal(new Set(found).size, found.length, label);
       }
     }
+  });
+}
+
+test('every supported filter retains its matches below the inclusive cutoff, through the controller and all pages', async () => {
+  const cases = [
+    ...['Bengaluru', 'Bangalore', 'Mumbai', 'Bombay', 'Kolkata', 'Calcutta', 'Chennai', 'Madras', 'Gurugram', 'Gurgaon']
+      .map(city => ({ city, locationMatch: 'exact' })),
+    { city: 'Bengaluru', locationMatch: 'partial' }, { city: ['Bangalore', 'Bengaluru'] },
+    { state: 'karnataka', locationMatch: 'exact' }, { state: 'Karnataka' }, { state: 'Karnataka,Delhi' },
+    ...['hoskote', 'north-belt', 'tiny-place', 'alipur-budhpur', 'special-belt', 'depot-20', 'unknown-place']
+      .map(micromarket => ({ city: 'Bangalore', micromarket })),
+    ...['PEB', 'RCC', 'BTS', 'Shed', 'PEB,RCC', 'peb,Shed'].map(warehouseType => ({ warehouseType })),
+    { warehouseType: ['PEB', 'RCC', 'PEB'] }, { zone: 'North' }, { zone: 'North,South' },
+    { contactPerson: 'owner' }, { contactPerson: ['PRIVATE OWNER', 'absent'] },
+    { compliances: 'ISO' }, { compliances: ['ISO 9001', 'absent'] }, { address: 'industrial' },
+    { minBudget: '20' }, { maxBudget: '30' }, { minBudget: '20', maxBudget: '30' },
+    { minClearHeight: '25' }, { maxClearHeight: '35' }, { minClearHeight: '25', maxClearHeight: '35' },
+    { minSpace: 0 }, { maxSpace: 0 }, { minSpace: 10000, maxSpace: 25000 }, { minSpace: 50000 },
+    { spaceRanges: '0-10000,50000-' }, { spaceRanges: '50000-,0000-10000,0-10000' },
+    { fireNocAvailable: true }, { fireNocAvailable: false }, { hasCoordinates: true }, { hasCoordinates: false },
+    { city: 'Bangalore,Bengaluru', state: 'Karnataka', micromarket: 'hoskote', warehouseType: 'RCC',
+      fireNocAvailable: true, hasCoordinates: true, minSpace: 50100, maxSpace: 50400 },
+    { warehouseType: ['PEB', 'RCC'], zone: 'North', compliances: 'ISO', contactPerson: 'OWNER',
+      address: 'industrial', minBudget: '20', maxBudget: '30', minClearHeight: '25', maxClearHeight: '35', fireNocAvailable: false },
+  ];
+  for (const filters of cases) {
+    // A differential oracle specifically checks that adding maxId changes only
+    // membership at the boundary; existing tests establish filter semantics.
+    const matching = ids(await read(filters, 1, 2000));
+    const maxId = matching[Math.floor(matching.length / 2)] ?? 600;
+    const expected = matching.filter(id => id <= maxId);
+    const capped = { ...filters, maxId };
+    const label = JSON.stringify(capped);
+    const found = [];
+    for (let page = 1; page <= Math.ceil(expected.length / 21) + 1; page++) {
+      const result = await read(capped, page);
+      assert.deepEqual(result.pagination, { currentPage: page, pageSize: 21,
+        totalItems: expected.length, totalPages: Math.ceil(expected.length / 21) }, label);
+      assert.deepEqual(ids(result), expected.slice((page - 1) * 21, page * 21), label);
+      found.push(...ids(result));
+    }
+    assert.deepEqual(found, expected, label);
+    const query = Object.fromEntries(Object.entries(capped).map(([key, value]) => [key,
+      Array.isArray(value) ? value : String(value)]));
+    const res = response();
+    await getWarehouses({ query: { ...query, pageSize: '21' }, headers: { 'cache-control': 'no-store' } }, res);
+    assert.equal(res.code, 200, label);
+    assert.deepEqual(ids(res.body), expected.slice(0, 21), label);
+    assert.equal(res.body.pagination.totalItems, expected.length, label);
   }
 });
 
@@ -307,6 +387,7 @@ const response = () => ({ headers: {}, code: 200,
 });
 test('controller validates malformed requests and forwards valid micromarket queries', async () => {
   for (const query of [{ page: '-1' }, { page: '2abc' }, { pageSize: '0' }, { page: ['1', '2'] },
+    ...['0', '-1', '2893x', '1.5', '2147483648', ['1', '2'], {}].map(maxId => ({ maxId })),
     { minSpace: '-1' }, { minSpace: '5000.5' }, { maxSpace: '50000x' }, { minSpace: '20000', maxSpace: '10000' },
     { minSpace: ['1000', '2000'] }, { micromarket: 'hoskote' }, { city: {}, micromarket: 'hoskote' },
     { city: 'Bengaluru', micromarket: 'bad/slug' }, { locationMatch: 'fuzzy' }, { fireNocAvailable: 'maybe' },
@@ -326,7 +407,7 @@ test('controller validates malformed requests and forwards valid micromarket que
   assert.equal(res.code, 200);
   assert.deepEqual(ids(res.body), [723]);
   assert.equal(res.headers['X-Wareongo-Cache'], 'bypass');
-  assert.equal(res.headers['X-Wareongo-Listing-Filters'], '2');
+  assert.equal(res.headers['X-Wareongo-Listing-Filters'], '3');
   const multi = response();
   await getWarehouses({ query: { city: 'Range City', warehouseType: 'PEB,Shed', spaceRanges: '0-10000,50000-' }, headers: {} }, multi);
   assert.equal(multi.code, 200);
@@ -341,7 +422,10 @@ test('cache includes every filter and fresh reads bypass it without consulting a
     { city: 'Bengaluru', micromarket: 'hoskote' }, { city: 'Bengaluru', minSpace: 50000 },
     { city: 'Bengaluru', locationMatch: 'exact' }, { city: 'Bengaluru' },
     { city: 'Range City', spaceRanges: '0-10000,50000-' }, { city: 'Range City', spaceRanges: '10000-25000,50000-' },
-    { city: 'Type City', warehouseType: 'PEB,RCC' }, { city: 'Type City', warehouseType: 'PEB' }];
+    { city: 'Type City', warehouseType: 'PEB,RCC' }, { city: 'Type City', warehouseType: 'PEB' },
+    { maxId: 600 }, { maxId: 700 }, {},
+    ...[1200, 1206, 1214].map(maxId => ({ maxId, city: 'Choice City', state: 'Choice State',
+      micromarket: 'choice-belt', warehouseType: 'PEB,RCC', spaceRanges: '0-10000,50000-', fireNocAvailable: true }))];
   const originals = [];
   for (const filter of options) originals.push(await warehouses.getWarehouses(filter, 1, 21));
   assert.equal(cache.size, options.length);

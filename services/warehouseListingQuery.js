@@ -37,6 +37,8 @@ export function readWarehouseQuery(input = {}, requestedPage = 1, requestedSize 
   const pageSize = integer(requestedSize, 'pageSize', 10, 1);
   if ((page - 1) * pageSize > 2147483647) throw new WarehouseQueryError('Page offset is too large');
   const filters = {};
+  const maxId = integer(input.maxId, 'maxId', undefined, 1);
+  if (maxId !== undefined) filters.maxId = maxId;
   for (const name of Object.keys(columns)) {
     if (absent(input[name])) continue;
     const values = (Array.isArray(input[name]) ? input[name] : [input[name]])
@@ -103,6 +105,7 @@ const normalizedPlace = column => Prisma.sql`lower(btrim(regexp_replace(${column
 /** Shared WHERE for the page and count. Every request value is a bound parameter. */
 export function warehouseWhere(filters) {
   const conditions = [Prisma.sql`w.visibility = true`];
+  if (filters.maxId !== undefined) conditions.push(Prisma.sql`w.id <= ${filters.maxId}`);
   for (const [name, column] of Object.entries(columns)) {
     const values = filters[name];
     if (!values?.length) continue;

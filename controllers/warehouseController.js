@@ -19,6 +19,7 @@ export async function getWarehouses(req, res) {
 
     // Extract filters from query parameters
     const filters = {
+      maxId: req.query.maxId,
       city: req.query.city,
       state: req.query.state,
       micromarket: req.query.micromarket,
@@ -42,8 +43,8 @@ export async function getWarehouses(req, res) {
     const cacheOptions = requestCacheOptions(req, res);
     const result = await warehouseService.getWarehouses(filters, page, pageSize, cacheOptions);
     // SSG builds must not silently succeed against an older backend that
-    // ignores native location filters or multi-select area/type matching.
-    res.set('X-Wareongo-Listing-Filters', '2');
+    // ignores native filters or the build's maximum warehouse ID.
+    res.set('X-Wareongo-Listing-Filters', '3');
     res.set('X-Wareongo-Image-Policy', gallery.POLICY_VERSION);
     if (!cacheOptions.bypassCache) res.set('Cache-Control', 'no-cache');
     res.status(200).json(result);
