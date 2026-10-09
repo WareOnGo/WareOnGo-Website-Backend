@@ -192,7 +192,8 @@ function attachNearbyStates(states) {
 //   v1: first release
 //   v2: cityOverview on cities
 //   v3: nearbyStates on states
-const CACHE_KEY = 'locations:v3';
+//   v4: gated locality tables with overlapping tag membership
+const CACHE_KEY = 'locations:v4';
 const CACHE_TTL_SECONDS = 600;
 
 class LocationService {

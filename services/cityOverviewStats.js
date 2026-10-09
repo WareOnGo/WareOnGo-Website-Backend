@@ -1,5 +1,5 @@
 import { rateNumber, slugifyMicromarket, isNamedMicromarket, canonicalCity, slugifyCity } from './micromarketService.js';
-import { CITY_CORRIDORS, CITY_NEIGHBOURS, COMPARISON_CITIES } from './cityOverviewConfig.js';
+import { CITY_LOCALITY_GROUPS, LOCALITY_TABLE_MIN_TAGGED_LISTINGS, CITY_NEIGHBOURS, COMPARISON_CITIES } from './cityOverviewConfig.js';
 
 // A separate, versioned city contract. The shared state/micromarket derivation
 // keeps its existing semantics, including rounding and page eligibility.
@@ -45,9 +45,16 @@ const mix = values => {
   return [...counts].map(([label, count]) => ({ label, count, share: Math.round(count * 100 / values.length) }))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 };
-const tagsFor = row => [...new Map((Array.isArray(row.micromarket) ? row.micromarket : [])
-  .filter(isNamedMicromarket).map(name => [slugifyMicromarket(name), String(name).trim()])).entries()]
-  .filter(([slug]) => slug).sort(([a], [b]) => a.localeCompare(b));
+const tagsFor = row => {
+  const tags = new Map();
+  for (const raw of Array.isArray(row.micromarket) ? row.micromarket : []) {
+    if (!isNamedMicromarket(raw)) continue;
+    const slug = slugifyMicromarket(raw);
+    const name = String(raw).trim();
+    if (slug && (!tags.has(slug) || name.localeCompare(tags.get(slug)) < 0)) tags.set(slug, name);
+  }
+  return [...tags].sort(([a], [b]) => a.localeCompare(b));
+};
 
 export function cityStockStats(rows) {
   const rents = known(rows.map(row => rateNumber(row.ratePerSqft)));
@@ -86,21 +93,41 @@ export function cityOverviewFor(rows, citySlug) {
     const size = unitSize(row);
     return size !== null && size >= min && (max === null || size < max);
   });
-  const definitions = CITY_CORRIDORS[citySlug];
+  const definitions = Object.hasOwn(CITY_LOCALITY_GROUPS, citySlug) ? CITY_LOCALITY_GROUPS[citySlug] : undefined;
+  const stockIds = new Set(stock.map(row => row.id));
   const groups = new Map();
-  for (const row of stock) {
+  let taggedListings = 0;
+  let baseListings = 0;
+  for (const row of unique) {
     const tags = tagsFor(row);
-    const matches = definitions?.filter(def => def.markets.some(slug => tags.some(([tag]) => tag === slug))) ?? [];
-    // Multiple corridor memberships remain explicitly unassigned. With no
-    // reviewed corridor map, present individual locality groups, one per row.
-    const def = matches.length === 1 ? matches[0] : !definitions && tags.length === 1
-      ? { slug: tags[0][0], name: tags[0][1], direction: '' } : null;
-    const key = def?.slug ?? 'other-unassigned';
-    if (!groups.has(key)) groups.set(key, { slug: key, name: def?.name ?? 'Other / unassigned locations', direction: def?.direction ?? '', rows: [] });
-    groups.get(key).rows.push(row);
+    if (!tags.length) continue;
+    taggedListings++;
+    const matches = definitions
+      ? definitions.filter(def => def.markets.some(slug => tags.some(([tag]) => tag === slug)))
+      : tags.map(([slug, name]) => ({ slug, name }));
+    if (!matches.length) continue;
+    // Eligibility and the denominator count visible tagged listings once.
+    // Row statistics retain the existing built-stock exclusions, including BTS.
+    baseListings++;
+    if (!stockIds.has(row.id)) continue;
+    for (const { slug, name } of matches) {
+      if (!groups.has(slug)) groups.set(slug, { slug, name, direction: '', rows: [] });
+      const group = groups.get(slug);
+      // Equivalent tags can arrive with different casing; keep the label stable
+      // when database row order changes without altering the supplied wording.
+      if (name.localeCompare(group.name) < 0) group.name = name;
+      group.rows.push(row);
+    }
   }
-  const corridors = [...groups.values()].map(({ rows: members, ...group }) => ({ ...group, ...cityStockStats(members) }))
-    .sort((a, b) => Number(a.slug === 'other-unassigned') - Number(b.slug === 'other-unassigned') || b.listings - a.listings || a.name.localeCompare(b.name));
+  const eligible = taggedListings >= LOCALITY_TABLE_MIN_TAGGED_LISTINGS;
+  // Keep the response field names for existing consumers; corridor mode is retired.
+  const corridors = eligible ? [...groups.values()].map(({ rows: members, ...group }) => {
+    const stats = cityStockStats(members);
+    return { ...group, ...stats, share: stats.listings * 100 / baseListings,
+      ...(stats.listings < 3 ? { rent: null, size: null, construction: [] } : {}) };
+  }).sort((a, b) => definitions
+    ? definitions.findIndex(def => def.slug === a.slug) - definitions.findIndex(def => def.slug === b.slug)
+    : b.listings - a.listings || a.name.localeCompare(b.name)) : [];
   const markets = new Map();
   for (const row of unique) for (const [slug, name] of tagsFor(row)) {
     const market = markets.get(slug) ?? { slug, name, listings: 0 };
@@ -110,7 +137,9 @@ export function cityOverviewFor(rows, citySlug) {
   return {
     version: 1, summary, nearbyLabel: 'Nearby cities',
     excluded: { unbuilt: unique.filter(unbuilt).length, underConstruction: unique.filter(row => !unbuilt(row) && underConstruction(row)).length },
-    corridorMode: definitions ? 'corridors' : 'localities', corridors,
+    corridorMode: 'localities', corridors,
+    localityTable: { eligible, taggedListings, baseListings, minTaggedListings: LOCALITY_TABLE_MIN_TAGGED_LISTINGS,
+      grouping: definitions ? 'areas' : 'micromarkets' },
     segments: { large: cityStockStats(band(20000, null)), small: cityStockStats(band(0, 20000)) },
     rentBySize: BANDS.map(([slug, label, min, max]) => ({ slug, label, min, max, ...cityStockStats(band(min, max)) })),
     specsBySize: { large: cityStockStats(band(50000, null)), small: cityStockStats(band(0, 20000)) },
@@ -139,7 +168,7 @@ export function attachCityOverviews(cities, listings) {
     if (ranked.length && city.cityOverview.summary.rent) city.cityOverview.comparisonCities = [...ranked, city].map(peer => ({
       name: peer.name, slug: peer.slug, path: peer.path, medianRent: peer.cityOverview.summary.rent.median, isSelf: peer.slug === city.slug,
     }));
-    const neighbours = CITY_NEIGHBOURS[city.slug];
+    const neighbours = Object.hasOwn(CITY_NEIGHBOURS, city.slug) ? CITY_NEIGHBOURS[city.slug] : undefined;
     city.cityOverview.nearbyLabel = neighbours ? 'Nearby cities' : `Other cities${city.parentState ? ` in ${city.parentState}` : ''}`;
     city.cityOverview.nearbyCities = cities.filter(peer => peer.slug !== city.slug && peer.hasPage && (neighbours
       ? neighbours.includes(peer.slug) : city.stateSlug && peer.stateSlug === city.stateSlug))

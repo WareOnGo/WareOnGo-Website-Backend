@@ -44,7 +44,7 @@ test('cities aggregate aliases, use micromarket geography, and only compare citi
   assert.equal(result.data.cities.find(c => c.slug === 'small-town').hasPage, false);
   assert.equal(result.data.cities.find(c => c.slug === 'unknown-state-city').stateSlug, null);
   assert.ok(!result.data.states.some(s => s.slug === 'na'));
-  assert.equal(cache.mock.calls[0].arguments[0], 'locations:v3');
+  assert.equal(cache.mock.calls[0].arguments[0], 'locations:v4');
 });
 
 test('border config states each edge once and reads both ways', () => {
@@ -59,6 +59,35 @@ test('border config states each edge once and reads both ways', () => {
   assert.deepEqual(neighbouringStates('karnataka').sort(), ['andhra-pradesh', 'goa', 'kerala', 'maharashtra', 'tamil-nadu', 'telangana']);
   assert.ok(neighbouringStates('puducherry').includes('andhra-pradesh'));
   assert.deepEqual(neighbouringStates('atlantis'), []);
+});
+
+test('fresh location reads apply the locality gate both ways across city aliases and visible inventory', async t => {
+  const rows = Array.from({ length: 50 }, (_, i) => ({ ...row(i, i % 2 ? 'Bangalore' : 'Bengaluru', 'Karnataka'),
+    visibility: true, micromarket: i < 24 ? ['Nelamangala'] : [] }));
+  rows[24].micromarket = ['Makali'];
+  rows[24].visibility = false;
+  mockPrisma(t, prisma.warehouse, 'findMany', async options => {
+    assert.deepEqual(options.where, { visibility: true });
+    return rows.filter(r => r.visibility);
+  });
+  t.mock.method(redis, 'get', () => { throw new Error('fresh reads must bypass stale eligibility'); });
+  t.mock.method(redis, 'setEx', () => { throw new Error('fresh reads must not replace visitor cache'); });
+  const read = async () => (await locations.getLocations({ bypassCache: true })).data.cities.find(c => c.slug === 'bengaluru');
+  const below = await read();
+  assert.equal(below.cityOverview.localityTable.taggedListings, 24);
+  assert.deepEqual(below.cityOverview.corridors, []);
+  assert.equal(below.listingIds.length, 49);
+  rows[24].visibility = true;
+  const eligible = await read();
+  assert.equal(eligible.cityOverview.localityTable.eligible, true);
+  assert.equal(eligible.cityOverview.localityTable.baseListings, 25);
+  assert.equal(eligible.cityOverview.corridors[0].listings, 25);
+  assert.equal(eligible.listingIds.length, 50, 'untagged inventory remains in the listing grid');
+  rows[24].micromarket = [];
+  const dropped = await read();
+  assert.equal(dropped.cityOverview.localityTable.eligible, false);
+  assert.deepEqual(dropped.cityOverview.corridors, []);
+  assert.equal(dropped.listingIds.length, 50, 'removing a tag must not remove a listing');
 });
 
 test('states list bordering states that carry inventory, busiest first; cities do not', async t => {
