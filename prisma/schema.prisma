@@ -788,8 +788,18 @@ model LocationPage {
   /// City overview sections; unused by state pages.
   corridorHeading  String?
   corridorProse    String?
+  /// Compliance section; city and state pages.
   complianceHeading String?
   complianceProse  String?
+  /// State overview "Cities" section heading; unused by city pages. Null falls
+  /// back to a default built from the place name.
+  citiesHeading    String?
+  /// State overview "Cities" list; unused by city pages. {name, slug, image}[],
+  /// at most 8, in display order: slug is one of the state's /locations cities
+  /// or null for a city not in our listings, and image ({url, alt, width,
+  /// height} or null) overrides the automatic listing photo. Null or empty
+  /// means the default: the state's 4 cities with the most listings.
+  stateCities      Json?
   /// {q,a}[] — drives both the visible accordion and the FAQPage LD, which must
   /// stay identical for the schema to validate.
   faqs             Json

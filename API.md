@@ -211,6 +211,112 @@ Retrieve detailed information for a specific warehouse.
 - `404` - Warehouse not found or not visible
 - `500` - Server error
 
+### Gallery Images
+List and detail responses both carry `images`: the selected public gallery
+(approved photos only, at most eight, cover first; see `docs/image-pipeline.md`).
+`photos` and `photosWebp` are legacy projections of the same list in the same
+order, and `imageQuality` gives each image's quality metadata at the same
+position.
+
+**Image entry:**
+```json
+{
+  "id": 4812,
+  "originalUrl": "https://images.example/4812.jpg",
+  "webpUrl": "https://images.example/webp/4812.webp",
+  "jpegUrl": null,
+  "displayUrl": "https://images.example/webp/4812.webp",
+  "classification": "OUTDOOR",
+  "documentKind": null,
+  "caption": "Front facade with loading bays"
+}
+```
+
+**Matching `imageQuality` entry:**
+```json
+{ "qualityTier": "T1", "coverSuitable": true, "width": 1600, "height": 900 }
+```
+
+- `qualityTier`: `T1`, `T2` or `T3`, the effective tier after any staff
+  override and the resolution ceiling (longest side under 960 px caps at `T2`,
+  under 640 px at `T3`).
+- `coverSuitable`: the flag the gallery used to choose its cover: the
+  assessment marked it cover-suitable, the view is an overview (interior,
+  facade, dock, yard or land), and its widest 16:9 crop is at least 640 px.
+- `width`, `height`: the assessed source size in pixels.
+
+These four fields are additive and sit outside `images`, which stays the
+shared image contract the dashboard compares against. Selection and order are unchanged, and the assessment itself
+(view, scene, hashes, reasons) is never sent. Consumers should treat them as
+optional, since an older backend omits them. They are read fresh on every
+request with the rest of the gallery, so the listing cache key and the
+`X-Wareongo-Image-Policy: approved-4-8-v1` header are unchanged.
+
+## Location Overviews
+
+### Derived Location Data
+**GET** `/locations` and `/locations/{kind}/{slug}` (`kind` is `city` or `state`)
+
+Cities and states with the figures derived from their visible listings, read by
+the website build and the CMS. Cached for 10 minutes under `locations:v3`;
+`Cache-Control: no-cache` bypasses the cache.
+
+Every state entry carries `nearbyStates`: the states it shares a land border
+with that also appear in `data.states`, ordered by listings (descending), then
+name. Borders are a static config in `services/stateNeighbours.js`, each edge
+written once and read both ways; a neighbour with no visible listings is left
+out. Whether a neighbour has a published overview is for the consumer to check
+against `/location-pages`. City entries have no `nearbyStates`.
+
+**State entry (abridged):**
+```json
+{
+  "kind": "STATE",
+  "name": "Karnataka",
+  "slug": "karnataka",
+  "path": "/listings/state/karnataka",
+  "nearbyStates": [
+    { "name": "Maharashtra", "slug": "maharashtra" },
+    { "name": "Telangana", "slug": "telangana" },
+    { "name": "Tamil Nadu", "slug": "tamil-nadu" }
+  ]
+}
+```
+
+### Location Page Content
+**GET** `/location-pages` and `/location-pages/{kind}/{slug}`
+
+Published CMS content for city and state overview pages. Optional slots that
+are null or empty are omitted rather than sent as `null`. Sections that belong
+to one kind only are never sent for the other:
+
+| Field | CITY | STATE |
+|-------|------|-------|
+| `corridorHeading`, `corridorProse` | yes | omitted |
+| `complianceHeading`, `complianceProse` | yes | yes |
+| `citiesHeading` | omitted | yes |
+| `stateCities` | omitted | yes |
+
+`stateCities` is the editor's city list for a state page's "Cities" section,
+in display order, at most eight entries. It is sent as stored; the CMS
+validates it on save:
+
+```json
+"stateCities": [
+  { "name": "Bengaluru", "slug": "bengaluru", "image": null },
+  { "name": "Mysuru", "slug": null,
+    "image": { "url": "https://cdn.example/mysuru.webp", "alt": "Mysuru industrial area", "width": 1600, "height": 900 } }
+]
+```
+
+`slug` is one of the state's `/locations` cities, or `null` for a city not in
+our listings. `image` uses the `heroImage` shape and replaces the automatic
+listing photo. A null or empty list is omitted, and means the website's
+default: the state's four cities with the most listings.
+
+`citiesHeading` and `stateCities` are new columns: apply
+`scripts/sql/state-overview-v1.sql` before deploying this backend.
+
 ## Enquiries
 
 ### Create Enquiry

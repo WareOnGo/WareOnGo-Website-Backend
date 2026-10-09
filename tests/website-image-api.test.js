@@ -33,11 +33,18 @@ test('public list and detail return identical selected pairs with no rejected le
   assert.equal(list.code,200);assert.equal(detail.code,200);
   assert.deepEqual(list.body.data[0].images,detail.body.images);
   assert.deepEqual(detail.body.photos,['https://fixture.r2.dev/1.jpg','https://fixture.r2.dev/2.jpg']);
+  // Tier metadata survives both serializers (the detail route sanitizes for BigInt),
+  // beside the shared image contract rather than inside it.
+  for(const body of [list.body.data[0],JSON.parse(JSON.stringify(detail.body))]) {
+    assert.deepEqual(body.imageQuality.map(q=>[q.qualityTier,q.coverSuitable,q.width,q.height]),[['T1',true,1280,720],['T2',true,1280,720]]);
+    assert.ok(body.images.every(i=>!('qualityTier' in i)&&!('width' in i)),'images keep the shared contract');
+  }
   assert.ok(!JSON.stringify([list.body,detail.body]).includes('/99.'));
   assert.ok(!Object.hasOwn(detail.body,'media'));assert.ok(!JSON.stringify(detail.body).includes('sourceSha256'));
   assert.equal(list.headers['X-Wareongo-Image-Policy'],'approved-4-8-v1');
   assert.equal(detail.headers['X-Wareongo-Image-Policy'],'approved-4-8-v1');
   assert.ok(![...h.cache.values()][0].includes('fixture.r2.dev'));
+  assert.ok(![...h.cache.values()][0].includes('qualityTier'),'tiers are read fresh, never cached');
 });
 test('cache hits re-read approvals and current membership without rerunning the catalogue query',async t=>{
   const h=setup(t);
@@ -45,6 +52,7 @@ test('cache hits re-read approvals and current membership without rerunning the 
   h.state.rows=[{...imageRow(1),websiteDecision:'BLOCK'},imageRow(3,'OUTDOOR')];
   const next=await warehouses.getWarehouses();
   assert.deepEqual(next.data[0].images.map(r=>r.id),[3]);
+  assert.equal(next.data[0].imageQuality[0].qualityTier,'T1');
   assert.equal(h.list.mock.callCount(),2,'one page query plus one count query');
   assert.equal(h.lookup.mock.callCount(),2,'one fresh approval lookup per request');
 });
@@ -56,7 +64,7 @@ test('all-pending, all-blocked, missing and unavailable approvals yield explicit
     const list=await warehouses.getWarehouses();const detail=response();
     await controller.getWarehouseById({params:{id:'1'},headers:{}},detail);
     for(const row of [list.data[0],detail.body]) {
-      assert.deepEqual(row.images,[]);assert.deepEqual(row.photos,[]);assert.deepEqual(row.photosWebp,[]);
+      assert.deepEqual(row.images,[]);assert.deepEqual(row.photos,[]);assert.deepEqual(row.photosWebp,[]);assert.deepEqual(row.imageQuality,[]);
     }
   }
 });

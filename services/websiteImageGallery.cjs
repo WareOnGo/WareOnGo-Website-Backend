@@ -70,11 +70,26 @@ function selectWebsiteImages(rows, { minimum = 4, maximum = 8 } = {}) {
     const cover = [...picked].sort((a,b) => Number(b.cover)-Number(a.cover)
         || Number(b.overview)-Number(a.overview) || rank(a,b) || a.order-b.order)[0];
     const ordered = cover ? [cover,...picked.filter(c => c !== cover)] : [];
-    return ordered.map(({row}) => serializeImage(row.imageUrl,row));
+    return ordered.map(publicImage);
 }
 
-function publicImageFields(images = []) {
-    return { images, photos: images.map(image => image.originalUrl), photosWebp: images.map(image => image.webpUrl) };
+// The shared contract plus what the website needs to pick a showcase photo
+// across galleries: the effective tier (after the resolution ceiling), the
+// computed cover flag, and the assessed source size. Additive; the shared
+// serializer and the selection above are untouched.
+const QUALITY_FIELDS = ['qualityTier', 'coverSuitable', 'width', 'height'];
+function publicImage({ row, tier, cover }) {
+    return { ...serializeImage(row.imageUrl,row), qualityTier: tier, coverSuitable: cover,
+        width: row.websiteAssessment.sourceWidth, height: row.websiteAssessment.sourceHeight };
+}
+
+// `images` stays exactly the shared serializer's contract, which the dashboard
+// compares against; the website-only quality fields travel in `imageQuality`,
+// aligned by position like `photos` and `photosWebp`.
+function publicImageFields(selected = []) {
+    const images = selected.map(image => Object.fromEntries(Object.entries(image).filter(([key]) => !QUALITY_FIELDS.includes(key))));
+    return { images, photos: images.map(image => image.originalUrl), photosWebp: images.map(image => image.webpUrl),
+        imageQuality: selected.map(image => Object.fromEntries(QUALITY_FIELDS.map(key => [key, image[key] ?? null]))) };
 }
 
 module.exports = { POLICY_VERSION, selectWebsiteImages, publicImageFields };

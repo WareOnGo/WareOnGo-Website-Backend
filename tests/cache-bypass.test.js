@@ -45,7 +45,7 @@ for (const [label, read, ids] of [
     const get = t.mock.method(redis, 'get', async () => JSON.stringify(stale));
     const set = t.mock.method(redis, 'setEx', async () => { throw new Error('must not write'); });
     const del = t.mock.method(redis, 'del', async () => { throw new Error('must not evict'); });
-    const expectedStale = label === 'warehouses' ? { ...stale, data: [{ id: 2027, images: [], photos: [], photosWebp: [] }] } : stale;
+    const expectedStale = label === 'warehouses' ? { ...stale, data: [{ id: 2027, images: [], photos: [], photosWebp: [], imageQuality: [] }] } : stale;
     assert.deepEqual(await read(), expectedStale);
     assert.equal(query.mock.callCount(), 0);
     const result = await read({ bypassCache: true });

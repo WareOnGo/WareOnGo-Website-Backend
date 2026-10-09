@@ -63,6 +63,8 @@ test('real SQL and HTTP serve only approved current photos; shared ownership, em
   assert.deepEqual(detail.photos,[raw(1),raw(7),raw(2)]);
   assert.deepEqual(detail.photosWebp,[raw(1)+'.webp',raw(7)+'.webp',null]);
   assert.equal(detail.images[2].displayUrl,raw(2));
+  assert.deepEqual(detail.imageQuality.map(i=>[i.qualityTier,i.coverSuitable,i.width,i.height]),
+    [['T1',true,1280,720],['T1',true,1280,720],['T3',true,1280,720]]);
   const all=await list();assert.equal(all.pagination.totalItems,3);
   assert.deepEqual(all.data.find(r=>r.id===owners[0]).images,detail.images);
   assert.deepEqual(all.data.find(r=>r.id===owners[2]).photos,[raw(1)],'a shared source belongs to both current galleries');

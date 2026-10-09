@@ -30,6 +30,18 @@ fall back only to its selected original. No approved photos produces explicit
 empty arrays for the existing “Images available on request” frontend state.
 Approval-read errors produce empty galleries, never unfiltered originals.
 
+Each website `images` entry is exactly the shared `serializeImage` contract (the
+dashboard's integration test compares it verbatim). Beside it, `imageQuality`
+carries one entry per image, in the same order, with four fields from
+`websiteImageGallery.cjs`, so the website can choose a showcase photo across
+galleries (state overview city cards and market figure):
+`qualityTier` (the effective T1/T2/T3 after overrides and the resolution
+ceiling), `coverSuitable` (the computed cover flag used above), and `width` /
+`height` (assessed source pixels). `imageContract.cjs` is unchanged, and so are
+selection and order; the assessment itself is never published. The fields are
+read fresh with the gallery, so the list cache key and policy header stay as
+they are. See `API.md` "Gallery Images".
+
 List cache keys use `v9-approved-images`. Redis caches listing fields only;
 membership, visibility, approvals, and overrides are read fresh on every request,
 including cache hits. Public responses send `X-Wareongo-Image-Policy:

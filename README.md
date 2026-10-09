@@ -262,6 +262,26 @@ website and retargeting the CMS. No schema migration is needed.
 Run `node --test tests/micromarket-overview.test.js` for the isolated geography
 and API contract checks; they replace database/cache access with fixtures.
 
+## State overview pages
+
+`GET /locations` adds `nearbyStates` to every state: bordering states that also
+have listings, busiest first (see `services/stateNeighbours.js`). The cache key
+moves to `locations:v3`. `/location-pages` now serves `complianceHeading` and
+`complianceProse` for states as well as cities, and two new state-only fields:
+`citiesHeading`, and `stateCities`, the CMS-chosen city list (omitted when the
+page uses the default top four by listings). Public warehouse responses
+(`/warehouses`, `/warehouses/{id}`) gain `imageQuality`, aligned with `images`:
+each entry's `qualityTier`, `coverSuitable`, `width` and `height`, which the website uses to pick T1 photos for state city
+cards and the market figure. Gallery selection, the listing cache key and the
+image policy header are unchanged. See `API.md`.
+
+Run `scripts/sql/state-overview-v1.sql` in the Supabase SQL Editor before
+deploying this backend or the CMS; Prisma reads the new columns on every
+`LocationPage` query. Then deploy the backend and the CMS, and rebuild the
+website (a build against an older backend falls back to listing cover photos).
+Run `npm run test:locations` and `npm run test:website-images` for the isolated
+checks.
+
 ## Inventory cache bypass for builds
 
 Inventory GET endpoints (`/warehouses`, `/locations`, `/micromarkets`, including

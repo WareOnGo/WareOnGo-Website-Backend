@@ -2,10 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import gallery from '../services/websiteImageGallery.cjs';
 import pipeline from '../services/imagePipelineRepository.cjs';
+import contract from '../services/imageContract.cjs';
 
 import { imageRow } from './helpers/websiteImageFixtures.js';
 
 const select=gallery.selectWebsiteImages;
+const {serializeImage}=contract;
 const ids=rows=>select(rows).map(row=>row.id);
 const change=(row,assessment)=>({...row,websiteAssessment:{...row.websiteAssessment,...assessment}});
 
@@ -19,7 +21,7 @@ test('only current approved, useful scene photos can enter any public image fiel
   const payload=gallery.publicImageFields(select([imageRow(1),...rejected]));
   assert.deepEqual(payload.photos,['https://fixture.r2.dev/1.jpg']);
   assert.deepEqual(payload.photosWebp,['https://fixture.r2.dev/webp/1.webp']);
-  assert.deepEqual(gallery.publicImageFields(select(rejected)),{images:[],photos:[],photosWebp:[]});
+  assert.deepEqual(gallery.publicImageFields(select(rejected)),{images:[],photos:[],photosWebp:[],imageQuality:[]});
   assert.ok(!JSON.stringify(payload).includes('websiteAssessment'));
 });
 test('Sol reviews are consumed without hard-coding a Luna-only reader',()=>{
@@ -73,6 +75,43 @@ test('WebP failure retains only the approved original and legacy array positions
   const fields=gallery.publicImageFields(select([a,b]));
   assert.equal(fields.images[0].displayUrl,a.webpUrl);assert.equal(fields.images[1].displayUrl,b.imageUrl);
   assert.deepEqual(fields.photosWebp,[a.webpUrl,null]);assert.deepEqual(fields.photos,[a.imageUrl,b.imageUrl]);
+});
+test('public images add the effective tier, computed cover flag and source size, and nothing else private',()=>{
+  assert.deepEqual(select([imageRow(1)]),[{id:1,originalUrl:'https://fixture.r2.dev/1.jpg',webpUrl:'https://fixture.r2.dev/webp/1.webp',
+    jpegUrl:null,displayUrl:'https://fixture.r2.dev/webp/1.webp',classification:'INDOOR',documentKind:null,caption:'Warehouse view',
+    qualityTier:'T1',coverSuitable:true,width:1280,height:720}]);
+  // The resolution ceiling and a staff override set the reported tier, not the stored label.
+  const small=change(imageRow(2,'OUTDOOR'),{sourceWidth:900,sourceHeight:600});
+  const row=imageRow(3,'INDOOR','T1');
+  const overridden={...row,websiteOverride:{decision:'ALLOW',sourceSha256:row.websiteAssessment.sourceSha256,reviewedBy:'staff-1',
+    reviewedAt:'2026-09-25T14:00:00Z',reason:'Soft focus',qualityTier:'T2'}};
+  // Cover needs the model's flag, an overview view and a wide enough crop.
+  const washroom=change(imageRow(5),{view:'WASHROOM'}),portrait=change(imageRow(6,'OUTDOOR'),{sourceWidth:400,sourceHeight:1200});
+  const unflagged=change(imageRow(7),{coverSuitable:false});
+  const fields=Object.fromEntries(select([small,overridden,washroom,portrait,unflagged])
+    .map(i=>[i.id,[i.qualityTier,i.coverSuitable,i.width,i.height]]));
+  assert.deepEqual(fields,{2:['T2',true,900,600],3:['T2',true,1280,720],
+    5:['T1',false,1280,720],6:['T1',false,400,1200],7:['T1',false,1280,720]});
+  // A sparse gallery's soft-minimum fill reports its weak tier honestly.
+  assert.equal(select([imageRow(4,'OUTDOOR','T3')])[0].qualityTier,'T3');
+  for(const key of ['view','scene','sourceSha256','modelQualityTier','websiteAssessment','reasons'])
+    assert.ok(!JSON.stringify(select([small,overridden,washroom])).includes(`"${key}"`),key);
+});
+test('the added fields leave selection, order and the shared contract exactly as before',()=>{
+  const rows=Array.from({length:14},(_,i)=>change(imageRow(i,i%3?'INDOOR':'OUTDOOR',['T1','T2','T3'][i%3]),
+    i%4?{}:{view:'WASHROOM'}));
+  const strip=({qualityTier,coverSuitable,width,height,...rest})=>rest;
+  // Order recorded from the gallery before these fields existed.
+  const expected=[3,1,4,6,7,9,10,0];
+  assert.deepEqual(select(rows).map(strip),expected.map(id=>serializeImage(rows[id].imageUrl,rows[id])));
+});
+test('public fields keep images to the shared contract and carry quality beside them, aligned',()=>{
+  const rows=[imageRow(1),change(imageRow(2,'OUTDOOR'),{sourceWidth:900,sourceHeight:600})];
+  const fields=gallery.publicImageFields(select(rows));
+  // The dashboard compares website images with its own serializer output verbatim.
+  assert.deepEqual(fields.images,rows.map(row=>serializeImage(row.imageUrl,row)));
+  assert.deepEqual(fields.imageQuality,[{qualityTier:'T1',coverSuitable:true,width:1280,height:720},
+    {qualityTier:'T2',coverSuitable:true,width:900,height:600}]);
 });
 test('public reads fail closed without changing the unfiltered compression/PPT reader',async()=>{
   const blocked=imageRow(1,'INDOOR','T1',{websiteDecision:'BLOCK'});

@@ -1,6 +1,7 @@
 import prisma from '../models/prismaClient.js';
 import redisService from './redisService.js';
 import { attachCityOverviews } from './cityOverviewStats.js';
+import { neighbouringStates } from './stateNeighbours.js';
 import {
   canonicalCity,
   canonicalState,
@@ -168,10 +169,30 @@ function attachPeers(entries, spec) {
   }
 }
 
+/**
+ * A state page's "Nearby states" links: the states it borders that the
+ * catalogue also carries, busiest first. Whether a neighbour has a published
+ * overview to link to is the consumer's question; this answers which
+ * neighbours exist. Cities get no equivalent here; theirs is the curated
+ * cityOverview.nearbyCities.
+ */
+function attachNearbyStates(states) {
+  const bySlug = new Map(states.map((s) => [s.slug, s]));
+  for (const s of states) {
+    s.nearbyStates = neighbouringStates(s.slug)
+      .map((slug) => bySlug.get(slug))
+      .filter(Boolean)
+      .sort((a, b) => b.listings - a.listings || a.name.localeCompare(b.name))
+      .map(({ name, slug }) => ({ name, slug }));
+  }
+}
+
 // Bumped whenever the shape or the derivation changes, so a deploy cannot serve
 // figures computed by the previous version.
 //   v1: first release
-const CACHE_KEY = 'locations:v2';
+//   v2: cityOverview on cities
+//   v3: nearbyStates on states
+const CACHE_KEY = 'locations:v3';
 const CACHE_TTL_SECONDS = 600;
 
 class LocationService {
@@ -219,6 +240,7 @@ class LocationService {
 
     attachPeers(cities, KINDS.CITY);
     attachPeers(states, KINDS.STATE);
+    attachNearbyStates(states);
     attachCityOverviews(cities, listings);
 
     const payload = {

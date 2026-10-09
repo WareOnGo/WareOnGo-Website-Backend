@@ -38,12 +38,18 @@ const toApiShape = (p) => ({
   specHeading: orUndefined(p.specHeading),
   specProse: orUndefined(p.specProse),
   inventoryHeading: orUndefined(p.inventoryHeading),
+  // Sections one kind carries and the other does not, whatever the row holds.
   ...(p.kind === 'CITY' ? {
     corridorHeading: orUndefined(p.corridorHeading),
     corridorProse: orUndefined(p.corridorProse),
-    complianceHeading: orUndefined(p.complianceHeading),
-    complianceProse: orUndefined(p.complianceProse),
   } : {}),
+  ...(p.kind === 'STATE' ? {
+    citiesHeading: orUndefined(p.citiesHeading),
+    // Null or empty means the website's default list, so neither is sent.
+    stateCities: Array.isArray(p.stateCities) && p.stateCities.length ? p.stateCities : undefined,
+  } : {}),
+  complianceHeading: orUndefined(p.complianceHeading),
+  complianceProse: orUndefined(p.complianceProse),
   faqs: p.faqs,
   relatedBlogs: p.relatedBlogs,
   statOverrides: anyOverrideSet(p.statOverrides) ? p.statOverrides : undefined,
