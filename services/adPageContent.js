@@ -1,6 +1,84 @@
 import defaults from '../data/ad-pages/bangalore.json' with { type: 'json' };
 
 export const MAX_AD_PAGE_BYTES = 500000;
+// Shared by the native validator and the AI writing schema export.
+export const AD_TEXT_LIMIT = 20000;
+export const AD_LIST_LIMIT = 30;
+export const AD_REQUIRED_TEXT_PATHS = ['areaGroups.title', 'areaGroups.rows.need', 'areaGroups.rows.areas', 'rentGuide.intro', 'rentGuide.description', 'rentGuide.rows.area', 'rentGuide.rows.rent', 'faqs.q', 'faqs.a'];
+export const AD_REQUIRED_LIST_PATHS = ['areaGroups', 'areaGroups.rows', 'rentGuide.rows', 'faqs'];
+export const AD_REQUIRED_COPY_FIELDS = ["seoTitle","metaDescription","heroHeading","heroAccent","enquiryHeading","enquiryDescription","enquirySubmit","enquirySuccessHeading","enquirySuccessDescription","enquirySuccessCta","featuredHeading","availableHeading","filterAll","filterSmall","filterMedium","filterLarge","availableFooter","availableCta","locationsHeading","locationsCta","mapLabel","areaHeading","areaNeedHeading","areaLocationsHeading","whyHeading","requestHeading","requestDescription","requestCta","requestPhoneCta","servicesHeading","audiencesHeading","contactHeading","contactDescription","contactSuccess","rentHeading","rentAreaHeading","rentRateHeading","rentUnit","faqHeading"];
+export const AD_REQUIRED_CARD_FIELDS = {
+  benefits: ['title'], services: ['title', 'body', 'cta', 'mobileTitle', 'mobileBody'], audiences: ['title', 'body', 'primaryCta'],
+};
+
+// Version 1 stored fields for a retired layout. Migrate in memory, preserving
+// authored fields that are still rendered. Historical revisions remain intact.
+const PREVIOUS_SERVICE_COPY = {
+  'find-warehouse': {
+    titles: ['Find a warehouse', 'Find the Perfect Space', 'Verified Warehouses, Handpicked for You'],
+    bodies: ['Verified Bangalore spaces matched to your needs within 4 hours.', 'Verified spaces matched to your needs within 4 hours', 'Verified spaces to suit you in 4 hours', 'Share your size, location, specs and budget. Our team picks the options that fit and sends you a shortlist within 4 hours. All of our warehouses are verified by an area manager.'],
+    cta: 'Find my warehouse',
+  },
+  'build-to-suit': {
+    titles: ['Build to suit', 'Built-to-Suit Warehouses'],
+    bodies: ['We find land and owners to build to your specifications.', 'We find land that fits you, and build to your specs', 'We find land and build to your specs'],
+    cta: 'Start a build to suit',
+  },
+  'list-space': {
+    titles: ['Find a tenant or buyer', 'Find a Tenant or Buyer'],
+    bodies: ['Find tenants or buyers for your warehouse or spare space.', 'Find tenants or buyers for your property, hassle-free', 'Find tenants or buyers with ease', 'Own a warehouse, or have space left over? We bring you tenants and buyers from the businesses that come to us.'],
+    cta: 'List my space',
+  },
+  'transaction-management': {
+    titles: ['End-to-end transaction management', 'Complete Deal Management', 'End-to-End Transaction Management'],
+    bodies: ['Visits, negotiation, paperwork and compliance, managed through move-in.', 'Visits, Negotiation and Handover, handled end-to-end', 'One expert: from search to handover', 'Site visits, negotiation, documentation and compliance checks, handled by one team until you move in.'],
+    cta: 'Get started',
+  },
+};
+const PLACEHOLDER_TITLES = {
+  verified: 'Verified spaces', local: 'Local expertise', lease: 'Lease support',
+  'benefit-4': 'Benefit 4', 'benefit-5': 'Benefit 5', 'benefit-6': 'Benefit 6',
+};
+const PREVIOUS_BENEFIT_BODIES = {
+  local: 'The right locality, specs and paperwork, worked by **our experts**.',
+  lease: 'We negotiate the rent, security and lock-in, so that you **get the best deal**.',
+  verified: 'Every space is **verified by our area managers** before it reaches your shortlist.',
+  'benefit-4': '**One expert advisor** from proposal to move-in.',
+  'benefit-5': 'We take care of **the boring details** for you.',
+  'benefit-6': "Can't find the best fit? We arrange a **tailored warehouse** for you in 6 months.",
+};
+function upgradeLegacy(value) {
+  if (value?.version !== 1) return value;
+  const benefits = Array.isArray(value.benefits) ? value.benefits.map(item => {
+    const current = defaults.benefits.find(card => card.id === item?.id);
+    if (!current) return item;
+    if (item.title === PLACEHOLDER_TITLES[item.id] && typeof item.body === 'string' && !item.body.trim()) return current;
+    return { ...item, mobileTitle: item.title === current.title ? current.mobileTitle : '', body: item.body === PREVIOUS_BENEFIT_BODIES[item.id] ? current.body : item.body };
+  }) : value.benefits;
+  if (benefits?.length === 3 && benefits.every(item => ['verified', 'local', 'lease'].includes(item.id))) benefits.push(...defaults.benefits.slice(3));
+  if (Array.isArray(benefits)) benefits.sort((a, b) => defaults.benefits.findIndex(item => item.id === a.id) - defaults.benefits.findIndex(item => item.id === b.id));
+  return { ...value, version: 2,
+    copy: { ...value.copy,
+      ...Object.fromEntries(['areaHeading', 'areaNeedHeading', 'areaLocationsHeading', 'rentHeading', 'rentAreaHeading', 'rentRateHeading', 'rentUnit', 'faqHeading'].map(key => [key, defaults.copy[key]])),
+      availableHeading: value.copy?.availableHeading === 'Warehouses and Godowns Available Now in Bangalore' ? defaults.copy.availableHeading : value.copy?.availableHeading,
+      heroAccent: value.copy?.heroAccent === 'in Bangalore.' ? defaults.copy.heroAccent : value.copy?.heroAccent,
+      whyHeading: value.copy?.whyHeading === 'Why choose WareOnGo' ? defaults.copy.whyHeading : value.copy?.whyHeading,
+    },
+    benefits,
+    services: Array.isArray(value.services) ? value.services.map(item => {
+      const current = defaults.services.find(card => card.id === item?.id);
+      if (!current) return item;
+      const previous = PREVIOUS_SERVICE_COPY[item.id];
+      return { ...item,
+        title: previous.titles.includes(item.title) ? current.title : item.title,
+        body: previous.bodies.includes(item.body) ? current.body : item.body,
+        cta: previous.cta === item.cta ? current.cta : item.cta,
+        mobileTitle: current.mobileTitle, mobileBody: current.mobileBody,
+      };
+    }) : value.services,
+    areaGroups: defaults.areaGroups, rentGuide: defaults.rentGuide, faqs: defaults.faqs,
+  };
+}
 
 // Mirrored in the CMS and website build. Keep this contract and the import
 // snapshot together; tests cover draft privacy and invalid build inputs.
@@ -10,7 +88,7 @@ export function parseAdPage(value, { draft = false } = {}) {
   const fail = (path, message) => { throw new Error(`${path}: ${message}`); };
   function read(input, example, path) {
     if (typeof example === 'string') {
-      if (typeof input !== 'string' || input.length > 20000) fail(path, 'Enter text up to 20,000 characters.');
+      if (typeof input !== 'string' || input.length > AD_TEXT_LIMIT) fail(path, `Enter text up to ${AD_TEXT_LIMIT.toLocaleString('en-US')} characters.`);
       return input;
     }
     if (typeof example === 'number') {
@@ -18,7 +96,7 @@ export function parseAdPage(value, { draft = false } = {}) {
       return input;
     }
     if (Array.isArray(example)) {
-      if (!Array.isArray(input) || input.length > 30) fail(path, 'Use at most 30 entries.');
+      if (!Array.isArray(input) || input.length > AD_LIST_LIMIT) fail(path, `Use at most ${AD_LIST_LIMIT} entries.`);
       return input.map((item, index) => read(item, example[0], `${path}.${index + 1}`));
     }
     if (!input || typeof input !== 'object' || Array.isArray(input)) fail(path, 'This section is missing.');
@@ -26,29 +104,14 @@ export function parseAdPage(value, { draft = false } = {}) {
     // never copied into the public endpoint or generated website snapshot.
     return Object.fromEntries(Object.entries(example).map(([key, child]) => [key, read(input[key], child, path ? `${path}.${key}` : key)]));
   }
-  // Add new template slots to older saved revisions without overwriting edits
-  // or rewriting drafts/approved records in the database.
-  let compatible = value;
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const legacyBenefits = Array.isArray(value.benefits) && value.benefits.length === 3
-      && value.benefits.every(item => ['verified', 'local', 'lease'].includes(item?.id));
-    const images = value.images && typeof value.images === 'object' && !Array.isArray(value.images) && value.images.why === undefined
-      ? { ...value.images, why: defaults.images.why } : value.images;
-    compatible = {
-      ...value,
-      heroSteps: value.heroSteps === undefined ? defaults.heroSteps : value.heroSteps,
-      benefits: legacyBenefits ? [...value.benefits, ...defaults.benefits.slice(3)] : value.benefits,
-      images,
-    };
-  }
-  const page = read(compatible, defaults, '');
-  if (page.heroSteps.length !== 4) fail('heroSteps', 'Keep the four process steps.');
-  if (page.version !== 1 || page.slug !== 'bangalore') fail('page', 'Unknown ad page or content version.');
+  if (![1, 2].includes(value?.version) || value?.slug !== 'bangalore') fail('page', 'Unknown ad page or content version.');
+  const page = read(upgradeLegacy(value), defaults, '');
   for (const group of ['benefits', 'services', 'audiences']) {
     const actual = page[group].map(item => item.id).sort();
     const expected = defaults[group].map(item => item.id).sort();
     if (JSON.stringify(actual) !== JSON.stringify(expected)) fail(group, 'Keep the existing card identities.');
   }
+  if (page.areaGroups.length !== defaults.areaGroups.length || page.areaGroups.some((group, i) => group.id !== defaults.areaGroups[i].id || group.scope !== defaults.areaGroups[i].scope)) fail('areaGroups', 'Keep the highway and city groups in their existing order.');
   for (const [slot, image] of Object.entries(page.images)) {
     if (!Number.isInteger(image.width) || !Number.isInteger(image.height) || image.width < 1 || image.height < 1 || image.width > 10000 || image.height > 10000) fail(`images.${slot}`, 'Enter valid image dimensions.');
     if (!image.url && draft) continue;
@@ -62,19 +125,21 @@ export function parseAdPage(value, { draft = false } = {}) {
     if (!draft && !image.alt.trim()) fail(`images.${slot}.alt`, 'Describe the image.');
   }
   if (!draft) {
-    const required = ['seoTitle', 'metaDescription', 'heroHeading', 'heroAccent', 'enquiryHeading', 'enquiryDescription', 'enquirySubmit', 'enquirySuccessHeading', 'enquirySuccessDescription', 'enquirySuccessCta', 'featuredHeading', 'availableHeading', 'filterAll', 'filterSmall', 'filterMedium', 'filterLarge', 'availableFooter', 'availableCta', 'locationsHeading', 'locationsCta', 'mapLabel', 'areaHeading', 'areaNeedHeading', 'areaLocationsHeading', 'whyHeading', 'requestHeading', 'requestDescription', 'requestCta', 'requestPhoneCta', 'servicesHeading', 'audiencesHeading', 'overviewHeading', 'statsHeading', 'statsLocationsHeading', 'statsRentHeading', 'statsInventoryHeading', 'statsSpecificationsHeading', 'statsCityHeading', 'contactHeading', 'contactDescription', 'contactSuccess'];
     if (!page.name.trim()) fail('name', 'Add a page name.');
-    for (const key of required) if (!page.copy[key].trim()) fail(`copy.${key}`, 'Add this text before saving for the next build.');
-    if (page.heroSteps.some(step => !step.trim())) fail('heroSteps', 'Name each process step before saving for the next build.');
-    for (const group of ['overviewStats']) {
-      if (page[group].length < 1 || page[group].length > 8) fail(group, 'Use one to eight figures.');
-      for (const item of page[group]) if (!item.value.trim() || !item.label.trim()) fail(group, 'Give every figure a value and label.');
+    for (const key of AD_REQUIRED_COPY_FIELDS) if (!page.copy[key].trim()) fail(`copy.${key}`, 'Add this text before saving for the next build.');
+    function required(input, path) {
+      if (Array.isArray(input)) {
+        if (AD_REQUIRED_LIST_PATHS.includes(path) && !input.length) fail(path, 'Add at least one entry.');
+        input.forEach(item => required(item, path));
+      } else if (input && typeof input === 'object') {
+        for (const [key, item] of Object.entries(input)) required(item, path ? path + '.' + key : key);
+      } else if (AD_REQUIRED_TEXT_PATHS.includes(path) && !input.trim()) fail(path, 'Complete this text before publishing.');
     }
-    if (!page.overviewParagraphs.length || page.overviewParagraphs.some(text => !text.trim())) fail('overviewParagraphs', 'Write the overview paragraphs.');
-    if (!page.areaRows.length || page.areaRows.some(row => !row.need.trim() || !row.areas.length || row.areas.some(area => !area.trim()))) fail('areaRows', 'Complete each area recommendation.');
-    for (const item of page.benefits) if (!item.title.trim()) fail('benefits', 'Give each benefit a title.');
-    for (const item of page.services) if (!item.title.trim() || !item.body.trim() || !item.cta.trim()) fail('services', 'Complete each service card.');
-    for (const item of page.audiences) if (!item.title.trim() || !item.body.trim() || !item.primaryCta.trim() || (item.id === '3pls' && !item.secondaryCta.trim())) fail('audiences', 'Complete each audience card.');
+    required(page, '');
+    const messages = { benefits: 'Give each benefit a title.', services: 'Complete each service card.', audiences: 'Complete each audience card.' };
+    for (const [group, fields] of Object.entries(AD_REQUIRED_CARD_FIELDS)) {
+      for (const item of page[group]) if (fields.some(field => !item[field].trim()) || (group === 'audiences' && item.id === '3pls' && !item.secondaryCta.trim())) fail(group, messages[group]);
+    }
   }
   return page;
 }

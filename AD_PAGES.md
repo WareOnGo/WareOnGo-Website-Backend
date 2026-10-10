@@ -3,7 +3,7 @@
 The Bangalore campaign page at `/bangalore` uses the `AdPage` table. Editors
 manage it in the CMS under **Ad pages → Bangalore**. The existing page layout,
 contact forms, listing selection, size filters and map interactions stay in the
-website. Copy, figures, area recommendations, service and audience cards, CTA
+website. Copy, area recommendations, the rent guide, FAQs, service and audience cards, CTA
 labels and page photos are editable in the CMS.
 
 ## Initial rollout
@@ -50,16 +50,16 @@ with desktop, mobile and full-screen controls. Draft content stays in browser
 memory; links, form submissions and analytics are disabled in the preview.
 `WEBSITE_PREVIEW_ORIGIN` optionally selects a local website server; production
 defaults to `https://wareongo.com`. Warehouse details and micromarket counts are
-not manually editable through this section. Remaining overview placeholders and
-blank benefit descriptions are retained for editors to complete.
+not manually editable through this section. Version 2 matches the current page:
+two area-guide groups, a rent guide and FAQs, six benefit cards, and separate
+mobile service copy. The retired process steps, overview figures/paragraphs,
+statistics headings and unused benefit image no longer belong to the contract.
 
-The hero uses four editable process steps in place of its earlier introduction
-and figures. The shared content reader supplies those steps for older saved
-revisions and drops the removed fields. No database rewrite is needed.
-
-“Why choose WareOnGo” uses six benefit cards and a section image. Older revisions
-retain their three existing benefits and gain the new placeholder cards and image
-when read. All six titles, descriptions and the image are editable in the CMS.
+The shared reader accepts version 1 and upgrades it in memory. It seeds newly
+editable sections from the current website defaults and preserves independent
+edits to retained fields. Stored drafts, approvals and historical revisions are
+not rewritten. Version 2 copy is never replaced by historical copy substitutions.
+Deploy the backend, then the website, then the CMS; this update needs no SQL migration.
 
 The first version supports the existing Bangalore template. Adding a new ad page
 requires a route/template, a registered slug, its initial content and a database
@@ -69,8 +69,8 @@ constraint update; the editor does not invent unsupported city URLs.
 
 The initial JSON in `data/ad-pages/bangalore.json` is mirrored in the CMS's
 `content/ad-pages/` and the website's `src/data/ad-pages/`. It defines the field
-shape and is used only for initial import and validation, not to overwrite saved
-content. `services/adPageContent.js` is mirrored as CMS
+shape and supplies new fields during version 1 upgrades, without overwriting
+version 2 content. `services/adPageContent.js` is mirrored as CMS
 `lib/ad-page-content.mjs` and website `scripts/lib/ad-page-content.mjs`; keep
 these contracts in sync. Known fields are selected explicitly, so private
 metadata never enters the public response.

@@ -30,7 +30,8 @@ for (const [name, rows] of [['missing seed', []], ['missing approved version', [
 }
 test('content validation permits imported placeholders and complete typed content', () => {
   assert.deepEqual(parseAdPage(page), page);
-  assert.deepEqual(parseAdPage(page).heroSteps, ['Enquire', 'Visit', 'Sign', 'Move In']);
+  assert.equal(parseAdPage(page).version, 2);
+  assert.equal(parseAdPage(page).areaGroups.length, 2);
   assert.throws(() => parseAdPages([page, page]), /missing/);
   for (const url of ['javascript:alert(1)', '//unsafe.example/image.webp', 'http://unsafe.example/image.webp', 'https://user:password@example.test/a.webp']) {
     const bad = structuredClone(page); bad.images.services.url = url;
@@ -38,16 +39,22 @@ test('content validation permits imported placeholders and complete typed conten
   }
 });
 
-test('older approved content gains process steps without a database rewrite', () => {
-  const older = structuredClone(page);
-  delete older.heroSteps;
-  older.benefits = older.benefits.slice(0, 3);
-  delete older.images.why;
-  older.copy.heroIntro = 'Previous introduction';
-  older.heroPoints = [{ value: '611', label: 'live listings' }];
-  assert.deepEqual(parseAdPage(older), page);
-  assert.equal(older.heroSteps, undefined);
-  assert.equal(older.benefits.length, 3);
-  assert.equal(older.images.why, undefined);
-  assert.throws(() => parseAdPage({ ...page, heroSteps: ['Enquire', '', 'Sign', 'Move In'] }), /Name each process step/);
+test('public reads upgrade older approved content without changing saved revisions', async t => {
+  const older = JSON.parse(fs.readFileSync(new URL('./fixtures/bangalore-v1.json', import.meta.url), 'utf8'));
+  older.copy.heroHeading = 'An existing approved heading';
+  older.heroSteps = [];
+  older.areaRows = [];
+  const before = structuredClone(older);
+  mock(t, [{ slug: 'bangalore', publishedContent: older }]);
+  const res = response(); await getAdPages({}, res);
+  assert.equal(res.code, 200);
+  const upgraded = res.body.data[0];
+  assert.equal(upgraded.version, 2);
+  assert.equal(upgraded.copy.heroHeading, older.copy.heroHeading);
+  assert.deepEqual(upgraded.areaGroups, page.areaGroups);
+  assert.deepEqual(upgraded.rentGuide, page.rentGuide);
+  assert.deepEqual(upgraded.faqs, page.faqs);
+  assert.equal('heroSteps' in upgraded, false);
+  assert.deepEqual(older, before);
+  assert.deepEqual(parseAdPage(upgraded), upgraded);
 });
