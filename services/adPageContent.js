@@ -80,6 +80,22 @@ function upgradeLegacy(value) {
   };
 }
 
+// Version 3 adds optional mobile copy and independent images for every map area.
+// Upgrade only older records: missing fields on a v3 payload remain validation errors.
+function upgrade(value) {
+  const previous = upgradeLegacy(value);
+  if (previous?.version !== 2) return previous;
+  const images = { ...previous.images };
+  for (const slot of ['micromarket-doddaballapur', 'micromarket-bidadi', 'micromarket-sarjapur', 'micromarket-north-bangalore', 'micromarket-indiranagar', 'micromarket-marathalli', 'micromarket-jp-nagar', 'micromarket-hsr']) {
+    if (images[slot] === undefined) images[slot] = slot === 'micromarket-doddaballapur'
+      ? images['warehouse-2255'] ?? defaults.images[slot] : defaults.images[slot];
+  }
+  return { ...previous, version: 3, images,
+    benefits: Array.isArray(previous.benefits) ? previous.benefits.map(card => ({ mobileBody: '', ...card })) : previous.benefits,
+    audiences: Array.isArray(previous.audiences) ? previous.audiences.map(card => ({ mobileTitle: '', mobileBody: '', ...card })) : previous.audiences,
+  };
+}
+
 // Mirrored in the CMS and website build. Keep this contract and the import
 // snapshot together; tests cover draft privacy and invalid build inputs.
 export function parseAdPage(value, { draft = false } = {}) {
@@ -104,8 +120,8 @@ export function parseAdPage(value, { draft = false } = {}) {
     // never copied into the public endpoint or generated website snapshot.
     return Object.fromEntries(Object.entries(example).map(([key, child]) => [key, read(input[key], child, path ? `${path}.${key}` : key)]));
   }
-  if (![1, 2].includes(value?.version) || value?.slug !== 'bangalore') fail('page', 'Unknown ad page or content version.');
-  const page = read(upgradeLegacy(value), defaults, '');
+  if (![1, 2, 3].includes(value?.version) || value?.slug !== 'bangalore') fail('page', 'Unknown ad page or content version.');
+  const page = read(upgrade(value), defaults, '');
   for (const group of ['benefits', 'services', 'audiences']) {
     const actual = page[group].map(item => item.id).sort();
     const expected = defaults[group].map(item => item.id).sort();

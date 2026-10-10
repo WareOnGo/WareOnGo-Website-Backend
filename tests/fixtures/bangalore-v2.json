@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 2,
   "slug": "bangalore",
   "name": "Bangalore",
   "copy": {
@@ -50,43 +50,37 @@
       "id": "local",
       "title": "Local Expertise",
       "body": "Our experts match you with options whose location, size and specs suit your operations.",
-      "mobileTitle": "",
-      "mobileBody": ""
+      "mobileTitle": ""
     },
     {
       "id": "lease",
       "title": "Better Commercials",
       "body": "We negotiate for you, and we’re good at it: our clients end up saving ~20% on their lease.",
-      "mobileTitle": "",
-      "mobileBody": ""
+      "mobileTitle": ""
     },
     {
       "id": "verified",
       "title": "Verified Listings",
       "body": "Every space is verified by our area managers before it reaches your curated shortlist.",
-      "mobileTitle": "",
-      "mobileBody": ""
+      "mobileTitle": ""
     },
     {
       "id": "benefit-4",
       "title": "Single Point of Contact",
       "body": "No being bounced around teams. One expert advisor from proposal to move-in, Pan-India.",
-      "mobileTitle": "Single PoC",
-      "mobileBody": ""
+      "mobileTitle": "Single PoC"
     },
     {
       "id": "benefit-5",
       "title": "Compliance and Legal Support",
       "body": "Agreements, approvals and paperwork: we take care of the boring details for you.",
-      "mobileTitle": "Compliance Support",
-      "mobileBody": ""
+      "mobileTitle": "Compliance Support"
     },
     {
       "id": "benefit-6",
       "title": "Built to Suit",
       "body": "Can't find the best fit? We arrange a warehouse tailored to your operations in 6 months.",
-      "mobileTitle": "Built-to-Suit",
-      "mobileBody": ""
+      "mobileTitle": "Built-to-Suit"
     }
   ],
   "services": [
@@ -129,27 +123,21 @@
       "title": "Owners",
       "body": "Connect with businesses looking for warehouse space in Bangalore. We bring you tenants and buyers, and support you through site visits and the deal.",
       "primaryCta": "List your warehouse",
-      "secondaryCta": "",
-      "mobileTitle": "",
-      "mobileBody": ""
+      "secondaryCta": ""
     },
     {
       "id": "3pls",
       "title": "3PLs",
       "body": "Find space that fits your clients’ storage and distribution needs. Have space left over in a warehouse you run? We’ll find a customer for it.",
       "primaryCta": "Find space",
-      "secondaryCta": "Fill spare space",
-      "mobileTitle": "",
-      "mobileBody": ""
+      "secondaryCta": "Fill spare space"
     },
     {
       "id": "companies",
       "title": "Companies",
       "body": "Find the right warehouse for your inventory, fulfilment or manufacturing operations. We’ll help you shortlist spaces that match your business.",
       "primaryCta": "Find a warehouse",
-      "secondaryCta": "",
-      "mobileTitle": "",
-      "mobileBody": ""
+      "secondaryCta": ""
     }
   ],
   "images": {
@@ -332,54 +320,6 @@
       "alt": "Warehouse exterior near Jigani, Bangalore",
       "width": 900,
       "height": 675
-    },
-    "micromarket-doddaballapur": {
-      "url": "/bangalore/available-2255.webp",
-      "alt": "Warehouse in Doddaballapura, Bangalore",
-      "width": 800,
-      "height": 450
-    },
-    "micromarket-bidadi": {
-      "url": "/bangalore/micromarket-bidadi.webp",
-      "alt": "Warehouse interior in Bidadi Industrial Area, Mysore Road",
-      "width": 800,
-      "height": 450
-    },
-    "micromarket-sarjapur": {
-      "url": "/bangalore/micromarket-sarjapur.webp",
-      "alt": "Warehouse buildings on Sarjapura Road in Dommasandra",
-      "width": 800,
-      "height": 450
-    },
-    "micromarket-north-bangalore": {
-      "url": "/bangalore/micromarket-north-bangalore.webp",
-      "alt": "Warehouse interior in Sri Venkateshwara Nagar, Jakkur",
-      "width": 800,
-      "height": 450
-    },
-    "micromarket-indiranagar": {
-      "url": "/bangalore/micromarket-indiranagar.webp",
-      "alt": "Commercial property entrance on CMH Road, Indiranagar",
-      "width": 800,
-      "height": 450
-    },
-    "micromarket-marathalli": {
-      "url": "/bangalore/micromarket-marathalli.webp",
-      "alt": "Commercial interior in Thubarahalli, near Marathahalli",
-      "width": 800,
-      "height": 450
-    },
-    "micromarket-jp-nagar": {
-      "url": "/bangalore/micromarket-jp-nagar.webp",
-      "alt": "Warehouse interior in JP Nagar 7th Phase",
-      "width": 800,
-      "height": 450
-    },
-    "micromarket-hsr": {
-      "url": "/bangalore/micromarket-hsr.webp",
-      "alt": "Commercial space in Muneswara Nagar, HSR Layout",
-      "width": 800,
-      "height": 450
     }
   },
   "areaGroups": [
