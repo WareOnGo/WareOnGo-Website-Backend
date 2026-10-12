@@ -3,6 +3,7 @@ import { isValidPhoneNumber } from '../utils/phone.js';
 import { sanitizeForJSON } from '../utils/serialize.js';
 import notificationService from '../utils/notificationService.js';
 import sheetsService from '../utils/sheetsService.js';
+import crmService from '../utils/crmService.js';
 
 export async function createEnquiry(req, res) {
   try {
@@ -48,6 +49,13 @@ export async function createEnquiry(req, res) {
         email: email ? email.trim() : null,
         source: source.trim(),
       },
+    });
+
+    // CRM is independent of the existing email/Sheets chain and its rate limits.
+    const crmContext = { gclid: body.gclid, pagePath: body.pagePath };
+    setImmediate(async () => {
+      try { await crmService.sendLead('enquiry', created, crmContext); }
+      catch { console.error(`[crm] enquiry ${created.id} delivery failed`); }
     });
 
     // Send notification asynchronously - don't wait for completion or let failures affect response

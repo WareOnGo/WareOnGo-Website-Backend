@@ -4,12 +4,14 @@ import prisma from '../models/prismaClient.js';
 import { createEnquiry } from '../controllers/enquiryController.js';
 import notificationService from '../utils/notificationService.js';
 import sheetsService from '../utils/sheetsService.js';
+import crmService from '../utils/crmService.js';
 
 const response = () => ({ code: 200, status(code) { this.code = code; return this; },
   json(body) { this.body = body; return this; } });
 const contact = { name: ' Enquiry Test ', phoneNumber: '9876543210', email: null };
 
 function mockServices(t) {
+  t.mock.method(crmService, 'sendLead', async () => ({ success: true }));
   const originalCreate = prisma.enquiry.create;
   const create = t.mock.fn(async ({ data }) => ({ id: 1, ...data }));
   prisma.enquiry.create = create;

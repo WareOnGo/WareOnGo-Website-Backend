@@ -381,6 +381,12 @@ Warehouse enquiry example:
 - `400` - Missing or invalid required fields
 - `500` - Database error
 
+Both lead endpoints accept optional `gclid` and `pagePath` strings for CRM
+delivery. Missing or malformed attribution is ignored without rejecting the
+lead. These fields do not change the database record, Sheet columns or response.
+CRM receives only fields present in the relevant form, independently of existing
+email and Sheets processing. See README's Website CRM delivery section for setup.
+
 ## Customer Requests
 
 ### Create Customer Request
@@ -406,6 +412,8 @@ All fields are required and must be non-empty strings:
 - `company_name` - Company name
 - `preferred_location` - Preferred warehouse locations
 - `additional_requirements` - Detailed requirements
+- `email` (optional) - Contact email for CRM; the existing JSON requirements contact email is also supported.
+- `gclid`, `pagePath` (optional) - CRM attribution context, as described above.
 
 **Response (201):**
 ```json

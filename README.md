@@ -85,6 +85,39 @@ Server runs on `http://localhost:3000`
 - `POST /maintenance/webp` - Start or reuse the nightly compression job (authenticated)
 - `GET /maintenance/webp` - Read its latest status and progress (authenticated)
 
+## Website CRM delivery
+
+Both lead endpoints also send the saved lead to Twenty when
+`WEBSITE_CRM_ENABLED=true`, `TWENTY_CRM_BASE_URL` and `TWENTY_CRM_API_KEY` are set
+in the backend environment (Render in production). Keep the key server-side.
+The existing EmailJS and Sheets payloads and responses are unchanged.
+
+`utils/crmService.js` accepts the different form shapes: optional company, email,
+location and requirements are sent only when present. Warehouse requests support
+both plain requirements and the existing JSON contact/requirements payload.
+New opportunities use `NEW_LEAD` with empty assignees and no owner. Edge beta and
+CMS preview submissions are excluded from CRM, while their existing processing
+continues. Deploy the corresponding website-intake creator-fallback adjustment
+in CRM-Automations so these leads also stay unassigned in briefings. That exception
+requires this integration's `Website reference: website:enquiry:<id>` or
+`Website reference: website:customer_request:<id>` on the first description line;
+existing website API integrations retain their previous ownership behavior.
+
+The website sends optional `gclid` and `pagePath` on both endpoints, plus optional
+`email` on customer requests. `gclid` is retained for the browser session and sent
+to `gclidGoogleAds`; those leads use `WEBSITE_GOOGLE_ADS`, otherwise `WEBSITE_SEO`.
+These extra fields are delivery context, not new database/Sheet columns.
+
+CRM gets one independent background attempt with a 10-second timeout. There is
+no delivery table, retry worker or automatic replay. Failures log only the lead
+type, saved ID and failure category for manual follow-up; the lead remains in
+the website database. A process restart before delivery can lose that attempt.
+Check CRM before manually replaying a timed-out request, since it may have been
+created there. Set `WEBSITE_CRM_ENABLED=false` to disable forwarding.
+
+Run `npm run test:crm` for isolated mapping, delivery and existing destination
+regressions. These tests mock outbound delivery and do not create live leads.
+
 ## Daily warehouse WebPs
 
 The existing Supabase 02:00 IST job still calls CMS `POST /api/deploy`. The CMS

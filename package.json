@@ -11,6 +11,7 @@
     "test": "node tests/enquiry-notification.test.js",
     "test:unit": "node tests/enquiry-notification.test.js",
     "test:enquiry-company": "node --test tests/enquiry-company.test.js",
+    "test:crm": "node --test tests/crm-service.test.js tests/crm-lead-flow.test.js tests/enquiry-company.test.js tests/sheets-webhook.test.js",
     "test:webp": "node tests/webp/run.mjs",
     "test:website-images": "node tests/website-images.test.js && node tests/website-image-api.test.js",
     "test:website-images:integration": "node tests/website-image-integration.test.js",

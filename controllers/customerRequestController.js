@@ -3,6 +3,7 @@ import { isValidPhoneNumber } from '../utils/phone.js';
 import { sanitizeForJSON } from '../utils/serialize.js';
 import notificationService from '../utils/notificationService.js';
 import sheetsService from '../utils/sheetsService.js';
+import crmService from '../utils/crmService.js';
 
 export async function createCustomerRequest(req, res) {
   try {
@@ -37,6 +38,12 @@ export async function createCustomerRequest(req, res) {
         preferred_location: preferred_location.trim(),
         additional_requirements: additional_requirements.trim(),
       },
+    });
+
+    const crmContext = { gclid: body.gclid, pagePath: body.pagePath, email: body.email };
+    setImmediate(async () => {
+      try { await crmService.sendLead('customer_request', created, crmContext); }
+      catch { console.error(`[crm] customer_request ${created.id} delivery failed`); }
     });
 
     // Send notification asynchronously - don't wait for completion or let failures affect response
