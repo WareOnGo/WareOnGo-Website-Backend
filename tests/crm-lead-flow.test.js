@@ -93,6 +93,23 @@ for (const c of cases) {
     assert.equal(mocks.sheet.mock.callCount(), 1);
   });
 
+  test(`${c.type}: an actual CRM HTTP 400 response does not interrupt email or Sheets`, async t => {
+    const mocks = mock(t);
+    const fetch = mockCrmTransport(t, mocks);
+    fetch.mock.mockImplementation(async () => Response.json({
+      error: 'Error', code: 'INVALID_PHONE_NUMBER', statusCode: 400,
+    }, { status: 400 }));
+    const res = response();
+    await c.controller({ body: c.body }, res);
+    await flush();
+    assert.equal(res.code, 201);
+    for (const operation of [mocks.create, mocks.mail, mocks.sheet, fetch]) {
+      assert.equal(operation.mock.callCount(), 1);
+    }
+    assert.equal(console.log.mock.callCount(), 0);
+    assert.match(console.error.mock.calls[0].arguments[0], /delivery failed \(http_400\)/);
+  });
+
   test(`${c.type}: a stalled CRM call does not delay the response, email or Sheets`, async t => {
     const mocks = mock(t);
     let finishCrm;
@@ -170,6 +187,27 @@ for (const c of cases) {
     assert.equal(mocks.create.mock.callCount(), exclusions.length);
     assert.equal(mocks.mail.mock.callCount(), exclusions.length);
     assert.equal(mocks.sheet.mock.callCount(), exclusions.length);
+  });
+
+  test(`${c.type}: unsupported phone still delivers the lead while preserving existing destination payloads`, async t => {
+    const mocks = mock(t);
+    const fetch = mockCrmTransport(t, mocks);
+    const phone = '123456789012';
+    const phoneField = c.type === 'enquiry' ? 'phoneNumber' : 'phone_number';
+    const res = response();
+    await c.controller({ body: { ...c.body, [phoneField]: phone } }, res);
+    assert.equal(res.code, 201);
+    await flush();
+    assert.equal(fetch.mock.callCount(), 1);
+    const payload = JSON.parse(fetch.mock.calls[0].arguments[1].body);
+    assert.equal(payload.pocPhoneNumber, undefined);
+    assert.ok(payload.description.includes(`Phone: ${phone}`));
+    assert.equal(console.error.mock.callCount(), 0);
+    assert.equal(console.log.mock.callCount(), 1, 'CRM confirms the new opportunity');
+    for (const service of [mocks.mail, mocks.sheet]) {
+      assert.equal(service.mock.callCount(), 1);
+      assert.equal(service.mock.calls[0].arguments[0][phoneField], phone);
+    }
   });
 
   test(`${c.type}: real mapping and delivery cover the available form variants`, async t => {

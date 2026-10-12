@@ -1,3 +1,5 @@
+import { parsePhoneNumberWithError } from 'libphonenumber-js/max';
+
 const text = value => typeof value === 'string' ? value.trim() : '';
 const object = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
@@ -6,12 +8,22 @@ function parseRequirements(value) {
 }
 
 function phoneFields(value) {
-  const phone = text(value).replace(/[\s()-]/g, '');
+  const phone = text(value).replace(/[\s()-]/g, '').replace(/^00/, '+');
   if (!/^\+?\d{7,15}$/.test(phone)) return undefined;
-  const indian = /^(?:(?:\+?91|0091))?([6-9]\d{9})$/.exec(phone);
-  return indian ? {
-    primaryPhoneNumber: indian[1], primaryPhoneCallingCode: '+91', primaryPhoneCountryCode: 'IN',
-  } : { primaryPhoneNumber: phone };
+  try {
+    // Twenty uses this parser and rejects national numbers without country
+    // metadata. Local numbers default to India; explicit international codes win.
+    const parsed = parsePhoneNumberWithError(phone, { defaultCountry: 'IN', extract: false });
+    if (!parsed.isValid()) return undefined;
+    return {
+      primaryPhoneNumber: parsed.nationalNumber,
+      primaryPhoneCallingCode: `+${parsed.countryCallingCode}`,
+      ...(parsed.country ? { primaryPhoneCountryCode: parsed.country } : {}),
+    };
+  } catch {
+    // Preserve the original in the description without blocking the whole lead.
+    return undefined;
+  }
 }
 
 // Forms have different fields. Only the saved record is authoritative; optional

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { parsePhoneNumberWithError } from 'libphonenumber-js';
 import crmService, { buildCrmOpportunity } from '../utils/crmService.js';
 
 const enquiry = { id: 7, name: 'Asha Rao', phoneNumber: '+91 98765 43210', source: 'homepage' };
@@ -131,11 +132,60 @@ test('phone normalization preserves international numbers and omits malformed op
     });
   }
   const international = buildCrmOpportunity('enquiry', { ...enquiry, phoneNumber: '+44 20 7946 0123' });
-  assert.deepEqual(international.pocPhoneNumber, { primaryPhoneNumber: '+442079460123' });
+  assert.deepEqual(international.pocPhoneNumber, {
+    primaryPhoneNumber: '2079460123', primaryPhoneCallingCode: '+44', primaryPhoneCountryCode: 'GB',
+  });
   const malformed = buildCrmOpportunity('enquiry', { ...enquiry, phoneNumber: 'call later', email: 'not-an-email' });
   assert.equal(malformed.pocPhoneNumber, undefined);
   assert.equal(malformed.companyEmail, undefined);
   assert.match(malformed.description, /Phone: call later/);
+});
+
+test('Indian landlines include country metadata required by the CRM phone parser', () => {
+  // Twenty parses a national number with the supplied calling/country codes.
+  // Sending bare digits without either code caused the production HTTP 400.
+  assert.throws(() => parsePhoneNumberWithError('912234567890'), /INVALID_COUNTRY/);
+  for (const phoneNumber of ['2234567890', '02234567890', '912234567890', '+91 22 3456 7890', '00912234567890']) {
+    const payload = buildCrmOpportunity('enquiry', { ...enquiry, phoneNumber });
+    assert.deepEqual(payload.pocPhoneNumber, {
+      primaryPhoneNumber: '2234567890', primaryPhoneCallingCode: '+91', primaryPhoneCountryCode: 'IN',
+    }, phoneNumber);
+  }
+});
+
+test('unsupported optional phone values cannot block either kind of lead and remain in the description', () => {
+  for (const type of ['enquiry', 'customer_request']) {
+    for (const phone of ['123456789012', '1234567', '+999123456789', '000000000000',
+      '1'.repeat(20), '+91 98765 43210 ext 123', 'not a phone']) {
+      const record = type === 'enquiry' ? { ...enquiry, phoneNumber: phone } : { ...request, phone_number: phone };
+      const payload = buildCrmOpportunity(type, record);
+      assert.equal(payload.pocPhoneNumber, undefined, `${type}/${phone}`);
+      assert.ok(payload.description.includes(`Phone: ${phone}`));
+      assert.equal(payload.stage, 'NEW_LEAD');
+      assert.deepEqual(payload.assignedTo, []);
+    }
+  }
+});
+
+test('international prefixes and non-geographic numbers survive the actual CRM parsing contract', () => {
+  const examples = [
+    ['0044 20 7946 0123', '+442079460123', 'GB'],
+    ['+1 (202) 555-0123', '+12025550123', 'US'],
+    ['+800 1234 5678', '+80012345678', undefined],
+    ['9876543210', '+919876543210', 'IN'],
+    ['912234567890', '+912234567890', 'IN'],
+  ];
+  for (const [phoneNumber, expectedNumber, expectedCountry] of examples) {
+    const payload = buildCrmOpportunity('enquiry', { ...enquiry, phoneNumber });
+    const fields = payload.pocPhoneNumber;
+    const parsed = parsePhoneNumberWithError(fields.primaryPhoneNumber, {
+      defaultCallingCode: fields.primaryPhoneCallingCode?.replace(/\+/g, ''),
+      defaultCountry: fields.primaryPhoneCountryCode,
+    });
+    assert.equal(parsed.number, expectedNumber);
+    assert.equal(fields.primaryPhoneCountryCode, expectedCountry);
+    assert.ok(payload.description.includes(`Phone: ${phoneNumber}`));
+  }
 });
 
 function configure(t) {

@@ -95,6 +95,10 @@ The existing EmailJS and Sheets payloads and responses are unchanged.
 `utils/crmService.js` accepts the different form shapes: optional company, email,
 location and requirements are sent only when present. Warehouse requests support
 both plain requirements and the existing JSON contact/requirements payload.
+Phone numbers use the same parser as Twenty, with India as the default for local
+numbers and explicit international calling codes preserved. Numbers that cannot
+be parsed or validated are kept in the description and omitted from the
+structured phone field so they cannot reject the entire CRM lead.
 New opportunities use `NEW_LEAD` with empty assignees and no owner. Edge beta and
 CMS preview submissions are excluded from CRM, while their existing processing
 continues. Deploy the corresponding website-intake creator-fallback adjustment
