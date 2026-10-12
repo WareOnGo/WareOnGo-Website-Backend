@@ -99,6 +99,11 @@ Phone numbers use the same parser as Twenty, with India as the default for local
 numbers and explicit international calling codes preserved. Numbers that cannot
 be parsed or validated are kept in the description and omitted from the
 structured phone field so they cannot reject the entire CRM lead.
+Optional email addresses are also validated before setting the structured email
+field. Invalid email/phone values, unexpected lead field types, malformed
+requirements and invalid dates stay readable in the description. Unsupported
+text characters are escaped there. The mapper keeps valid fields from the same
+entry and never forwards arbitrary browser fields as CRM properties.
 New opportunities use `NEW_LEAD` with empty assignees and no owner. Edge beta and
 CMS preview submissions are excluded from CRM, while their existing processing
 continues. Deploy the corresponding website-intake creator-fallback adjustment

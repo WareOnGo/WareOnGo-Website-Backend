@@ -210,6 +210,34 @@ for (const c of cases) {
     }
   });
 
+  test(`${c.type}: invalid phone, email and attribution still create a CRM lead with the submitted details`, async t => {
+    const mocks = mock(t);
+    const fetch = mockCrmTransport(t, mocks);
+    const phone = '1234567';
+    const email = 'lead..name@example.com';
+    const requirements = '{malformed requirements';
+    const phoneField = c.type === 'enquiry' ? 'phoneNumber' : 'phone_number';
+    const res = response();
+    await c.controller({ body: { ...c.body, [phoneField]: phone, email, gclid: 'invalid/click',
+      ...(c.type === 'customer_request' ? { additional_requirements: requirements } : {}) } }, res);
+    assert.equal(res.code, 201);
+    await flush();
+    const payload = JSON.parse(fetch.mock.calls[0].arguments[1].body);
+    for (const field of ['pocPhoneNumber', 'companyEmail', 'gclidGoogleAds']) assert.equal(payload[field], undefined);
+    for (const detail of [`Phone: ${phone}`, `Email: ${email}`, 'Google click ID: invalid/click']) {
+      assert.ok(payload.description.includes(detail), detail);
+    }
+    if (c.type === 'customer_request') assert.ok(payload.description.includes(`Requirements: ${requirements}`));
+    assert.equal(payload.stage, 'NEW_LEAD');
+    assert.deepEqual(payload.assignedTo, []);
+    assert.equal(console.error.mock.callCount(), 0);
+    assert.equal(console.log.mock.callCount(), 1);
+    for (const operation of [mocks.create, mocks.mail, mocks.sheet, fetch]) assert.equal(operation.mock.callCount(), 1);
+    const saved = { id: c.id, ...mocks.create.mock.calls[0].arguments[0].data };
+    assert.deepEqual(mocks.mail.mock.calls[0].arguments, [saved]);
+    assert.deepEqual(mocks.sheet.mock.calls[0].arguments, [saved]);
+  });
+
   test(`${c.type}: real mapping and delivery cover the available form variants`, async t => {
     const mocks = mock(t);
     const fetch = mockCrmTransport(t, mocks);

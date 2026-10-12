@@ -188,6 +188,80 @@ test('international prefixes and non-geographic numbers survive the actual CRM p
   }
 });
 
+test('malformed optional emails stay in the description instead of the structured email field', () => {
+  const emails = ['lead..name@example.com', '.lead@example.com', 'lead.@example.com',
+    'lead@-example.com', 'lead@example..com', 'lead@exam_ple.com', '<lead>@example.com',
+    `${'a'.repeat(65)}@example.com`, 'lead@example.com\nBcc: someone@example.com'];
+  for (const email of emails) {
+    for (const [type, record, context] of [
+      ['enquiry', { ...enquiry, email }, {}],
+      ['customer_request', request, { email }],
+      ['customer_request', { ...request, additional_requirements: JSON.stringify({ contact: { email } }) }, {}],
+    ]) {
+      const payload = buildCrmOpportunity(type, record, context);
+      assert.equal(payload.companyEmail, undefined, email);
+      assert.ok(payload.description.includes(`Email: ${email}`));
+      assert.equal(payload.stage, 'NEW_LEAD');
+    }
+  }
+  for (const email of ['lead+warehouse@example.co.in', 'first.last@example.com', 'LEAD@EXAMPLE.COM']) {
+    assert.equal(buildCrmOpportunity('enquiry', { ...enquiry, email }).companyEmail.primaryEmail, email);
+  }
+});
+
+test('unexpected optional field types remain readable without leaking unrelated browser fields', () => {
+  const payload = buildCrmOpportunity('enquiry', {
+    id: 7, name: ['Lead'], companyName: { entered: 'Example' }, phoneNumber: 9876543210,
+    email: ['lead@example.com'], preferred_location: false, additional_requirements: 42,
+  }, { gclid: { original: 'click' }, apiKey: 'private-browser-field' });
+  for (const key of ['pocName', 'companyName', 'pocPhoneNumber', 'companyEmail', 'city', 'gclidGoogleAds']) {
+    assert.equal(payload[key], undefined, key);
+  }
+  for (const detail of ['Name: ["Lead"]', 'Company: {"entered":"Example"}', 'Phone: 9876543210',
+    'Email: ["lead@example.com"]', 'Preferred location: false', 'Requirements: 42',
+    'Google click ID: {"original":"click"}']) {
+    assert.ok(payload.description.includes(detail), detail);
+  }
+  assert.doesNotMatch(payload.description, /private-browser-field/);
+  assert.equal(payload.name, 'Website lead - Website enquiry');
+});
+
+test('null inputs, malformed requirements and invalid dates cannot abort CRM payload construction', () => {
+  for (const value of [null, undefined, [], 42, false]) {
+    const payload = buildCrmOpportunity('enquiry', value, value);
+    assert.equal(payload.stage, 'NEW_LEAD');
+    assert.doesNotThrow(() => JSON.stringify(payload));
+  }
+  for (const createdat of ['invalid date', 1n, {}, [], new Date(NaN), Infinity]) {
+    const payload = buildCrmOpportunity('enquiry', { ...enquiry, createdat });
+    assert.equal(payload.stage, 'NEW_LEAD');
+    assert.match(payload.description, /Submitted at:/);
+    assert.doesNotThrow(() => JSON.stringify(payload));
+  }
+  const payload = buildCrmOpportunity('customer_request', { id: 1n,
+    additional_requirements: { contact: { fullName: 'Asha Rao', phone: '1234567', email: 'invalid email' },
+      location: ['Bangalore'], extra: { needs: 'Loading docks' } } });
+  assert.equal(payload.pocName.firstName, 'Asha');
+  assert.equal(payload.pocPhoneNumber, undefined);
+  assert.equal(payload.companyEmail, undefined);
+  assert.equal(payload.city, undefined);
+  assert.match(payload.description, /"extra":\{"needs":"Loading docks"\}/);
+});
+
+test('database-incompatible characters are escaped in the description without rejecting the lead', () => {
+  const payload = buildCrmOpportunity('enquiry', { id: 7, name: 'Lead\u0000name',
+    companyName: 'Example\ud800', email: 'lead\u0000@example.com', preferred_location: 'City\udfff' });
+  for (const key of ['pocName', 'companyName', 'companyEmail', 'city']) assert.equal(payload[key], undefined);
+  assert.equal(payload.name, 'Website lead - Website enquiry');
+  assert.ok(payload.description.includes('Name: Lead\\u0000name'));
+  assert.ok(payload.description.includes('Company: Example\\ud800'));
+  assert.ok(payload.description.includes('Email: lead\\u0000@example.com'));
+  assert.ok(payload.description.includes('Preferred location: City\\udfff'));
+  assert.doesNotMatch(JSON.stringify(payload), /[\u0000\uD800-\uDFFF]/u);
+  const unicode = buildCrmOpportunity('enquiry', { ...enquiry, companyName: 'गोदाम 📦' });
+  assert.equal(unicode.companyName, 'गोदाम 📦');
+});
+
 function configure(t) {
   for (const [key, value] of Object.entries({ WEBSITE_CRM_ENABLED: 'true', TWENTY_CRM_BASE_URL: 'https://crm.example.test/', TWENTY_CRM_API_KEY: 'test-secret' })) {
     const old = process.env[key];
