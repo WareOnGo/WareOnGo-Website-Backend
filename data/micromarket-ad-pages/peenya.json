@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "citySlug": "bengaluru",
+  "slug": "peenya",
+  "name": "Peenya",
+  "copy": {
+    "heroHeading": "Industrial Sheds, Godowns & Warehouses for Rent",
+    "availableHeading": "Industrial Sheds, Godowns and Warehouses Available Now in Peenya",
+    "locationsHeading": "Explore Spaces in & Around Peenya",
+    "areaHeading": "Is Peenya Right for You?",
+    "rentHeading": "Warehouse, Godown and Factory Space Rent in Peenya",
+    "seoTitle": "Industrial Sheds and Warehouses for Rent in Peenya · WareOnGo",
+    "metaDescription": "{listings} live industrial sheds, factory spaces and warehouses for rent in Peenya, Bangalore. Share your requirement and get a curated shortlist in 4 hours. You only pay when you close."
+  },
+  "area": {
+    "whereItIs": "**Peenya Industrial Area** is Bangalore's original industrial estate, on **Tumkur Road (NH-48)** in the city's north-west, and one of the largest in the country. Engineering, machine tool, electrical, packaging and garment units sit side by side, and the **Green Line metro** runs straight into the city. **Huskur Road** runs off Tumkur Road towards Makali, and **Kachohalli** and **Machohalli** sit off Magadi Road near Kadabagere Cross. Further out on the highway are **Makali**, **Nelamangala** and **Dobbaspet**.",
+    "whoItSuits": "Peenya suits **suppliers and ancillary units** that need to sit next to its manufacturing base, **small industrial users** looking for a **shed or factory space** inside the city, and **distributors** who want quick access into Bangalore with a road straight onto the Mumbai highway. Units here range from **small sheds and RCC units** to **large pre-engineered buildings**. Tell us your **size, budget and use**, and we'll shortlist across all of them."
+  },
+  "rentGuide": {
+    "intro": "Rent in Peenya depends on the building, its age and how close it sits to the city. The table below shows asking rents on our live Peenya listings, and for Makali and Nelamangala next door.",
+    "description": "The pre-engineered buildings along Tumkur Road offer the clear height and docks for distribution. The RCC stock inside the estate is lower and suits storage, kitting and light assembly next to the supplier base. Confirm floor loading on the older buildings before you plan racking."
+  },
+  "faqs": [
+    {
+      "q": "What Is the Rent for an Industrial Shed in Peenya?",
+      "a": "Asking rents in Peenya run from {rentRange} per sq ft a month on our live listings. Rent depends on the building type, its age and its exact location, so tell us your size and budget and we shortlist only what fits."
+    },
+    {
+      "q": "What Sizes Are Available in Peenya?",
+      "a": "Peenya runs from small sheds and RCC units inside the estate to large pre-engineered buildings out along Tumkur Road, so tell us the size you need and we shortlist only what fits."
+    }
+  ],
+  "mapBylines": [
+    {
+      "slug": "peenya",
+      "byline": "North-West Bangalore"
+    },
+    {
+      "slug": "nelamangala",
+      "byline": "Tumkur Road, NH-48"
+    },
+    {
+      "slug": "dobbaspet",
+      "byline": "Tumkur Road, NH-48"
+    }
+  ]
+}

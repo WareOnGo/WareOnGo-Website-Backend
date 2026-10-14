@@ -31,7 +31,7 @@
     "whyHeading": "Why Choose WareOnGo?",
     "requestHeading": "Still Haven't Found the Warehouse You Want?",
     "requestDescription": "Tell us your requirements. We'll find it for you.",
-    "requestDetails": "Pan-India inventory · 4-hour shortlist · You only pay when you close.",
+    "requestDetails": "4-hour shortlist · You only pay when you close.",
     "requestCta": "Request a Warehouse",
     "requestPhoneCta": "Call Us Now",
     "servicesHeading": "Our Services",
@@ -70,7 +70,7 @@
     {
       "id": "benefit-4",
       "title": "Single Point of Contact",
-      "body": "No being bounced around teams. One expert advisor from proposal to move-in, Pan-India.",
+      "body": "No being bounced around teams. One expert advisor from proposal to move-in.",
       "mobileTitle": "Single PoC",
       "mobileBody": ""
     },
