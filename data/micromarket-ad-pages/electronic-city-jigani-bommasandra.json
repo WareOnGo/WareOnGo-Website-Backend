@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "citySlug": "bengaluru",
+  "slug": "electronic-city-jigani-bommasandra",
+  "name": "Electronic City, Jigani and Bommasandra",
+  "copy": {
+    "heroHeading": "Warehouses, Godowns & Industrial Sheds for Rent",
+    "availableHeading": "Warehouses, Godowns and Industrial Sheds Available Now in Electronic City, Jigani and Bommasandra",
+    "locationsHeading": "Explore Spaces in & Around Electronic City, Jigani & Bommasandra",
+    "areaHeading": "Is Electronic City, Jigani or Bommasandra Right for You?",
+    "rentHeading": "Warehouse, Godown and Industrial Shed Rent in Electronic City, Jigani and Bommasandra",
+    "seoTitle": "Warehouses, Godowns and Industrial Sheds for Rent in Electronic City, Jigani and Bommasandra · WareOnGo",
+    "metaDescription": "{listings} live warehouses, godowns and industrial sheds for rent in Electronic City, Jigani and Bommasandra, on Hosur Road. Share your requirement and get a curated shortlist in 4 hours. You only pay when you close."
+  },
+  "area": {
+    "whereItIs": "**Hosur Road (NH-44)** runs south out of Bangalore towards **Hosur** and **Chennai**. **Electronic City** sits on it at the city end, the **KIADB** estates at **Bommasandra** and **Jigani** follow, joined by a link road, and **Attibele** sits further south at the **Tamil Nadu** border, with **Bannerghatta Road** to the west. The stock mixes **pre-engineered buildings**, **RCC units** and **sheds**, with direct access into south Bangalore.",
+    "whoItSuits": "This stretch suits **electronics, pharma and auto suppliers** that need to sit next to the estates, **ancillary storage** for factories already operating here, and **city-facing distribution** into south and south-east Bangalore. Three in four of our listings here are under **20,000 sq ft**, from about **2,000 sq ft** up. Tell us your **size, budget and use**, and we'll shortlist across all of them."
+  },
+  "rentGuide": {
+    "intro": "Rent here depends on the building, its type and its size, and the highest asking rents are for small RCC units on the Electronic City stretch. The table below shows asking rents on our live listings along the Electronic City stretch of Hosur Road, in Jigani and Bommasandra, and for Attibele nearby.",
+    "description": "Units here are smaller than in Bangalore's outer belts, and fewer than half of our listings record loading docks. A good share is RCC, so confirm floor loading and clear height before you plan racking. On KIADB land, check that warehousing is allowed under the allotment."
+  },
+  "faqs": [
+    {
+      "q": "What Is the Rent for a Warehouse in Electronic City, Jigani or Bommasandra?",
+      "a": "Asking rents here run from {rentRange} per sq ft a month on our live listings. Rent depends on the building's type, size and specification, so tell us your size and budget and we shortlist only what fits."
+    },
+    {
+      "q": "Can I Rent a Warehouse in Electronic City?",
+      "a": "Yes. Our listings on the Electronic City stretch of Hosur Road include pre-engineered warehouses, RCC units and sheds, mostly small to mid-size. Tell us the size you need and we shortlist only what fits."
+    },
+    {
+      "q": "Can I Find an Industrial Shed in Jigani or Bommasandra?",
+      "a": "Yes. Both estates have sheds and RCC units alongside pre-engineered buildings, mostly small to mid-size. Tell us the size, power and clear height you need and we shortlist only what fits."
+    }
+  ],
+  "mapBylines": [
+    {
+      "slug": "hosur-road",
+      "byline": "Hosur Road"
+    },
+    {
+      "slug": "sarjapura",
+      "byline": "Sarjapur Road"
+    }
+  ]
+}

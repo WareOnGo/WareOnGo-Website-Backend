@@ -34,3 +34,11 @@ test('duplicate URLs, unsupported cities and incomplete approved copy are reject
   assert.throws(() => parseMicromarketAdPages([{ ...page, citySlug: 'mumbai' }]), /unsupported/);
   assert.throws(() => parseMicromarketAdPages([{ ...page, area: { ...page.area, whereItIs: '' } }]), /add text/);
 });
+test('Hosur and the combined area expose approved local copy through the same API', async t => {
+  const areas = ['hosur', 'electronic-city-jigani-bommasandra'].map(slug => JSON.parse(fs.readFileSync(new URL('../data/micromarket-ad-pages/' + slug + '.json', import.meta.url), 'utf8')));
+  mock(t, areas.map(content => ({ citySlug: content.citySlug, slug: content.slug, name: content.name, publishedContent: content, draftContent: { private: true } })));
+  const res = response(); await getMicromarketAdPages({}, res);
+  assert.equal(res.code, 200); assert.deepEqual(res.body, { data: areas });
+  assert.doesNotMatch(JSON.stringify(res.body), /private/);
+  assert.throws(() => parseMicromarketAdPages([{ ...areas[0], slug: 'attibele' }]), /identity/);
+});

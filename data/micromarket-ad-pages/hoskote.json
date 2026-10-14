@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "citySlug": "bengaluru",
+  "slug": "hoskote",
+  "name": "Hoskote",
+  "copy": {
+    "heroHeading": "Warehouses, Godowns & Industrial Sheds for Rent",
+    "availableHeading": "Warehouses, Godowns and Industrial Sheds Available Now in Hoskote",
+    "locationsHeading": "Explore Spaces in & Around Hoskote",
+    "areaHeading": "Is Hoskote Right for You?",
+    "rentHeading": "Warehouse, Godown and Industrial Shed Rent in Hoskote",
+    "seoTitle": "Warehouses, Godowns and Industrial Sheds for Rent in Hoskote · WareOnGo",
+    "metaDescription": "{listings} live warehouses, godowns and industrial sheds for rent in Hoskote, Bangalore, on Old Madras Road. Share your requirement and get a curated shortlist in 4 hours. You only pay when you close."
+  },
+  "area": {
+    "whereItIs": "**Hoskote** sits on **NH-75 Old Madras Road**, east of **Whitefield**, where the highway leaves Bangalore for **Kolar** and **Chennai**. **Soukya Road** runs in from the Whitefield side, and **Ekarajapura** sits on **Sidlaghatta Road** to the north. Further east on the same highway is **Narsapura**. Most of what we list here is **large pre-engineered buildings**, with a median clear height of **32 ft** and road links into east Bangalore.",
+    "whoItSuits": "Hoskote suits **occupiers serving east Bangalore**, **regional distribution** into **Andhra Pradesh** and **Tamil Nadu**, and **automotive supply** into the plants further east at Narsapura and Malur. Units run from **small sheds** to **buildings over 4 lakh sq ft**, and three in four of our listings here record **loading docks**. Tell us your **size, budget and use**, and we'll shortlist across all of them."
+  },
+  "rentGuide": {
+    "intro": "Rent in Hoskote depends on the building, its size and its specification. The table below shows asking rents on our live Hoskote listings, along Soukya Road and around Ekarajapura, and for Narsapura next door.",
+    "description": "Most buildings here are pre-engineered, with a median clear height of 32 ft, and clear height and docks are on record for most of our Hoskote listings, so you can compare buildings before a visit. Confirm the dock count and floor loading against your racking plan before you shortlist."
+  },
+  "faqs": [
+    {
+      "q": "What Is the Rent for a Warehouse in Hoskote?",
+      "a": "Asking rents in Hoskote run from {rentRange} per sq ft a month on our live listings. Rent depends on the building's size, specification and age, so tell us your size and budget and we shortlist only what fits."
+    },
+    {
+      "q": "What Sizes Are Available in Hoskote?",
+      "a": "Hoskote is weighted towards large space: most of what we list here is above 20,000 sq ft, and smaller units are a minor part of the stock. Tell us your size and we shortlist only what fits."
+    },
+    {
+      "q": "Can I Find an Industrial Shed in Hoskote?",
+      "a": "Yes, though sheds are a small part of the Hoskote stock, which is mostly pre-engineered warehousing. Tell us the size, power and clear height you need and we shortlist sheds and smaller units that fit."
+    }
+  ],
+  "mapBylines": [
+    {
+      "slug": "hoskote",
+      "byline": "Old Madras Road, NH-75"
+    },
+    {
+      "slug": "whitefield",
+      "byline": "East Bangalore"
+    },
+    {
+      "slug": "devanahalli",
+      "byline": "Airport Road"
+    }
+  ]
+}

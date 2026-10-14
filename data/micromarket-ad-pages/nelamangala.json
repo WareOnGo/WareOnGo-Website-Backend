@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "citySlug": "bengaluru",
+  "slug": "nelamangala",
+  "name": "Nelamangala",
+  "copy": {
+    "heroHeading": "Warehouses, Godowns & Industrial Sheds for Rent",
+    "availableHeading": "Warehouses, Godowns and Industrial Sheds Available Now in Nelamangala",
+    "locationsHeading": "Explore Spaces in & Around Nelamangala",
+    "areaHeading": "Is Nelamangala Right for You?",
+    "rentHeading": "Warehouse, Godown and Industrial Shed Rent in Nelamangala",
+    "seoTitle": "Warehouses, Godowns and Industrial Sheds for Rent in Nelamangala · WareOnGo",
+    "metaDescription": "{listings} live warehouses, godowns and industrial sheds for rent in Nelamangala, Bangalore, on Tumkur Road. Share your requirement and get a curated shortlist in 4 hours. You only pay when you close."
+  },
+  "area": {
+    "whereItIs": "**Nelamangala** sits where **NH-48 Tumkur Road** leaves Bangalore for **Tumakuru** and **Mumbai**, and where **NH-75** branches west towards **Hassan** and **Mangaluru**. **Budihal** and **T Begur** sit around Nelamangala itself, **Makali** lies between it and **Peenya** on the city side, and **Dobbaspet** is further out on NH-48. Most of what we list here is **large pre-engineered buildings**, with a median clear height of **35 ft**.",
+    "whoItSuits": "Nelamangala suits **outbound distribution** for **Karnataka** and the **west coast**, **3PLs** running **full pallet volumes**, and occupiers who need a **large building** with direct highway access. Most of what we list here is above **20,000 sq ft**, and four in five of our listings record **loading docks**. Tell us your **size, budget and use**, and we'll shortlist across all of them."
+  },
+  "rentGuide": {
+    "intro": "Rent in Nelamangala depends on the building, its size and its specification. The table below shows asking rents on our live Nelamangala listings, around Budihal and T Begur, and for Dobbaspet and Makali next door.",
+    "description": "Most buildings here are pre-engineered, with a median clear height of 35 ft, and clear height and docks are on record for most of our Nelamangala listings, so you can compare buildings before a visit. Confirm the dock count and floor loading against your racking plan before you shortlist."
+  },
+  "faqs": [
+    {
+      "q": "What Is the Rent for a Warehouse in Nelamangala?",
+      "a": "Asking rents in Nelamangala run from {rentRange} per sq ft a month on our live listings. Rent depends on the building's size, specification and age, so tell us your size and budget and we shortlist only what fits."
+    },
+    {
+      "q": "What Sizes Are Available in Nelamangala?",
+      "a": "Nelamangala is weighted towards large space: most of what we list here is above 20,000 sq ft, and small units are scarce. Tell us your size and we shortlist only what fits."
+    },
+    {
+      "q": "Can I Find an Industrial Shed in Nelamangala?",
+      "a": "Yes, though sheds are a small part of the Nelamangala stock, which is mostly pre-engineered warehousing. Tell us the size, power and clear height you need and we shortlist sheds and smaller units that fit."
+    }
+  ],
+  "mapBylines": [
+    {
+      "slug": "nelamangala",
+      "byline": "Tumkur Road, NH-48"
+    },
+    {
+      "slug": "dobbaspet",
+      "byline": "Tumkur Road, NH-48"
+    },
+    {
+      "slug": "peenya",
+      "byline": "North-West Bangalore"
+    }
+  ]
+}

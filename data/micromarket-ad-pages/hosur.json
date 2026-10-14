@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "citySlug": "hosur",
+  "slug": "hosur",
+  "name": "Hosur",
+  "copy": {
+    "heroHeading": "Warehouses, Industrial Sheds & Godowns for Rent",
+    "availableHeading": "Warehouses, Industrial Sheds and Godowns Available Now in Hosur",
+    "locationsHeading": "Explore Spaces in & Around Hosur",
+    "areaHeading": "Is Hosur Right for You?",
+    "rentHeading": "Warehouse, Industrial Shed and Godown Rent in Hosur",
+    "seoTitle": "Warehouses, Industrial Sheds and Godowns for Rent in Hosur · WareOnGo",
+    "metaDescription": "{listings} live warehouses, industrial sheds and godowns for rent in Hosur, Tamil Nadu, on NH-44. Share your requirement and get a curated shortlist in 4 hours. You only pay when you close."
+  },
+  "area": {
+    "whereItIs": "**Hosur** sits on **NH-44** south of Bangalore, on the **Tamil Nadu** side of the border, and grew as a manufacturing town around the **SIPCOT** industrial estates. **Kelamangalam** and **Uddanapalli** lie south of the town, **Thally Road** runs south-west towards Thally, and **Attibele** sits just across the border in Karnataka. Most of what we list here is **large pre-engineered buildings**, with a median clear height of **35 ft**.",
+    "whoItSuits": "Hosur suits **automotive and electronics supply chains**, suppliers to the **SIPCOT** estates, and **large occupiers** who can work from a **Tamil Nadu address**. Most of what we list here is above **20,000 sq ft**, and four in five of our listings record **loading docks**. Approvals, fire clearance and stamp duty follow **Tamil Nadu's rules**. Tell us your **size, budget and use**, and we'll shortlist across all of them."
+  },
+  "rentGuide": {
+    "intro": "Rent in Hosur depends on the building, its size and its specification. The table below shows asking rents on our live Hosur listings, and for Attibele just across the border.",
+    "description": "Hosur is in Tamil Nadu, so the fire NOC comes from Tamil Nadu Fire and Rescue Services and planning approval from the state's Directorate of Town and Country Planning, or the allotment terms inside SIPCOT. Confirm the clear height, dock count and floor loading of the building you are shown before you shortlist."
+  },
+  "faqs": [
+    {
+      "q": "What Is the Rent for a Warehouse in Hosur?",
+      "a": "Asking rents in Hosur run from {rentRange} per sq ft a month on our live listings. Rent depends on the building's size, specification and age, so tell us your size and budget and we shortlist only what fits."
+    },
+    {
+      "q": "Is Hosur in Bangalore?",
+      "a": "No. Hosur is in Tamil Nadu, on NH-44 south of Bangalore, just past the Attibele border. Approvals, fire clearance and stamp duty follow Tamil Nadu's rules."
+    },
+    {
+      "q": "Can I Find an Industrial Shed in Hosur?",
+      "a": "Yes. Sheds are part of the Hosur stock alongside pre-engineered warehouses. Tell us the size, power and clear height you need and we shortlist only what fits."
+    }
+  ],
+  "mapBylines": [
+    {
+      "slug": "hosur",
+      "byline": ""
+    },
+    {
+      "slug": "attibele",
+      "byline": ""
+    },
+    {
+      "slug": "bommasandra",
+      "byline": "Hosur Road"
+    }
+  ]
+}
