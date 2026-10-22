@@ -43,6 +43,13 @@ test('minimal records and unexpected optional types do not impose another form s
   }
 });
 
+test('ad-page leads take their city from the page source unless a location was given', () => {
+  for (const [source, city] of [['bangalore-sheds-landing', 'Bangalore'], ['hosur-landing-2927', 'Hosur'], ['hyderabad-landing', 'Hyderabad'], ['homepage', undefined]]) {
+    assert.equal(buildCrmOpportunity('enquiry', { ...enquiry, source }).city, city, source);
+  }
+  assert.equal(buildCrmOpportunity('enquiry', { ...enquiry, source: 'hyderabad-landing', preferred_location: 'Medchal' }).city, 'Medchal');
+});
+
 test('both plain-text and JSON warehouse requests preserve their available fields', () => {
   const plain = buildCrmOpportunity('customer_request', { ...request, additional_requirements: 'Cold storage, 24-hour access' });
   assert.equal(plain.city, 'Bangalore');

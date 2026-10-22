@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "citySlug": "bengaluru",
+  "slug": "sheds",
+  "name": "Industrial Sheds",
+  "copy": {
+    "heroHeading": "Industrial Sheds and Factory Space for Rent",
+    "availableHeading": "Industrial Sheds Available Now in Bangalore",
+    "locationsHeading": "Where the Industrial Sheds Are in Bangalore",
+    "areaHeading": "Is an Industrial Shed Right for You?",
+    "rentHeading": "Industrial Shed and Factory Space Rent in Bangalore",
+    "seoTitle": "Industrial Sheds and Factory Space for Rent or Lease in Bangalore · WareOnGo",
+    "metaDescription": "{listings} live industrial sheds and factory spaces for rent or lease in Bangalore. Share your requirement and get a curated shortlist in 4 hours. You only pay when you close."
+  },
+  "area": {
+    "whereItIs": "Our largest cluster of **industrial sheds** is around **Budigere** off **Old Madras Road**, east of Bangalore. Others sit in **Jakkur** and **Yelahanka** in the north, on the **Whitefield** and **Varthur** side, in **Peenya**, and in the **Hosur Road** estates at **Jigani** and **Bommasandra**, with a few on **Tumkur Road** and **Mysore Road**. Most of what we list from 5,000 sq ft up is **5,000 to 30,000 sq ft**, with a median **clear height of 25 ft**.",
+    "whoItSuits": "Sheds suit **light manufacturing**, **workshops**, **fabrication** and **storage** that does not need high racking, and businesses that want **factory space** close to the city. For a larger or higher building, a **pre-engineered warehouse** is usually the better fit, and we will show you both. Tell us your **size, power and use**, and we'll shortlist across all of them."
+  },
+  "rentGuide": {
+    "intro": "Industrial sheds, factory space and other industrial property for rent, lease or to let in Bangalore sit in a few clusters. The largest is around Budigere off Old Madras Road; others are in Jakkur and Yelahanka in the north, the Whitefield and Varthur side, Peenya, and the Hosur Road estates at Jigani and Bommasandra. Rent depends on where the shed is, its clear height and its power more than on its size. The table below shows asking rents on our live shed listings.",
+    "description": "Clear height is on record for every shed we list from 5,000 sq ft up, with a median of 25 ft, and most record loading docks. Ask for the sanctioned power load and the floor type before a visit, and confirm that the land use allows your activity, especially for manufacturing."
+  },
+  "faqs": [
+    {
+      "q": "What Is the Rent for an Industrial Shed in Bangalore?",
+      "a": "Asking rents for industrial sheds in Bangalore run from {rentRange} per sq ft a month on our live listings. Rent depends on the location, clear height and power more than on size, so tell us your size and budget and we shortlist only what fits."
+    },
+    {
+      "q": "How Do I Find an Industrial Shed or Factory Space Near Me?",
+      "a": "Tell us where your team, suppliers or customers are, and the size and power you need. We search our verified shed listings across Bangalore and send a shortlist within 4 hours, nearest options first."
+    },
+    {
+      "q": "Can I Rent or Lease a Shed for Manufacturing?",
+      "a": "Yes, if the land use and pollution category allow your activity. Tell us what you will make and the power you need, and we shortlist factory sheds where the paperwork fits, not just the size."
+    }
+  ],
+  "mapBylines": [
+    {
+      "slug": "budigere",
+      "byline": ""
+    },
+    {
+      "slug": "whitefield",
+      "byline": ""
+    },
+    {
+      "slug": "jakkur-yelahanka",
+      "byline": ""
+    },
+    {
+      "slug": "peenya",
+      "byline": ""
+    },
+    {
+      "slug": "jigani-bommasandra",
+      "byline": ""
+    },
+    {
+      "slug": "nelamangala",
+      "byline": ""
+    },
+    {
+      "slug": "hoskote",
+      "byline": ""
+    },
+    {
+      "slug": "kumbalgodu",
+      "byline": ""
+    }
+  ]
+}

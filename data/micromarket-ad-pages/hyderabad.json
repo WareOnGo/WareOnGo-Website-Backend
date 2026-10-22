@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "citySlug": "hyderabad",
+  "slug": "hyderabad",
+  "name": "Hyderabad",
+  "copy": {
+    "heroHeading": "Warehouses and Godowns for Rent",
+    "availableHeading": "Warehouses and Godowns Available Now in Hyderabad",
+    "locationsHeading": "Explore Spaces in Hyderabad",
+    "areaHeading": "Hyderabad's Warehouse Belts",
+    "rentHeading": "Warehouse Rent in Hyderabad",
+    "seoTitle": "Warehouses and Godowns for Rent in Hyderabad · WareOnGo",
+    "metaDescription": "{listings} live, verified warehouses and godowns for rent in Hyderabad. Share your requirement and get a curated shortlist in 4 hours. You only pay when you close."
+  },
+  "area": {
+    "whereItIs": "Hyderabad's warehouse belts sit along its highways. **Medchal** and **Devaryamjal** lie north of the Outer Ring Road around the **Nagpur highway (NH-44)**, with **Kompally** and **Gundlapochampally** closer to the city on the same side. **Shamshabad** sits next to the airport in the south, and **Patancheru** is on the **Mumbai highway** to the west. Tell us your **size, budget and use**, and we'll shortlist across all of them."
+  },
+  "rentGuide": {
+    "intro": "Hyderabad is one of the most consistent large warehousing markets in the country. Its industrial stock is mostly purpose-built, rates across its main belts sit close together, and units are large for a city market. For an occupier that makes the choice unusually simple, which is to pick the belt that suits your road access and compare buildings.",
+    "sections": [
+      {
+        "title": "Where the Stock Sits",
+        "body": "Hyderabad's warehousing grew along two axes, NH-44 running north towards Nagpur and the airport corridor running south. The northern arm through **Medchal**, **Devaryamjal** and **Kompally** carries most of the stock and many of the biggest units, just beyond the Outer Ring Road where trucks avoid the city. The southern arm through **Shamshabad** serves air freight and the pharma cluster. A third, much smaller belt runs west towards **Patancheru** on the Mumbai highway."
+      },
+      {
+        "title": "What Drives the Rent",
+        "body": "Once you are past small city units, Hyderabad has one of the flattest cost curves of any city we cover. Rates barely move between mid-size and very large units, so scale buys specification rather than a lower rate. Small units inside the city are the exception: they are priced as city space and carry a clear premium, which is what sets the top of the range."
+      },
+      {
+        "title": "What to Check",
+        "body": "Generous docking is the practical difference between Hyderabad and most other cities, because the typical unit was designed for vehicle turnaround. Outside an industrial park, establish the land-use position first: HMDA runs change of land use around the city, and inside a TGIIC park the allotment sets what the plot may be used for. Fire clearance comes from the Telangana State Disaster Response and Fire Services Department. Longer leases have to be registered and stamped."
+      }
+    ]
+  },
+  "faqs": [
+    {
+      "q": "What Is the Rent for a Warehouse in Hyderabad?",
+      "a": "Asking rents in Hyderabad run from {rentRange} per sq ft a month on our live listings. The belts trade close together, and the top of the range is small city units rather than warehousing."
+    },
+    {
+      "q": "Is Warehouse Stock in Hyderabad Mostly PEB or RCC?",
+      "a": "Mostly pre-engineered. Almost all of the belt stock was purpose-built, which is why specification is so consistent. RCC sits inside the city, where it is converted space at a much higher rate and a fraction of the size."
+    }
+  ],
+  "mapBylines": [
+    {
+      "slug": "medchal",
+      "byline": ""
+    },
+    {
+      "slug": "kompally-devaryamjal",
+      "byline": ""
+    },
+    {
+      "slug": "shamshabad",
+      "byline": ""
+    },
+    {
+      "slug": "patancheru",
+      "byline": ""
+    }
+  ]
+}

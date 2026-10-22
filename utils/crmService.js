@@ -103,7 +103,8 @@ export function buildCrmOpportunity(type, record = {}, context = {}) {
   const normalizedPhone = phoneFields(rawPhone);
   if (normalizedPhone) payload.pocPhoneNumber = normalizedPhone;
   if (email && isEmail(email)) payload.companyEmail = { primaryEmail: email };
-  const city = location || (/^bangalore-/.test(source) ? 'Bangalore' : '');
+  // Ad-page sources start with their city: bangalore-…, hosur-landing…, hyderabad-landing….
+  const city = location || { bangalore: 'Bangalore', hosur: 'Hosur', hyderabad: 'Hyderabad' }[/^(bangalore|hosur|hyderabad)-/.exec(source)?.[1]] || '';
   if (city) payload.city = city;
   if (gclid) payload.gclidGoogleAds = gclid;
   return payload;

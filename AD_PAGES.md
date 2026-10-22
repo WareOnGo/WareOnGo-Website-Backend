@@ -79,3 +79,27 @@ Run `npm run test:ad-pages` in all three checkouts. Also run `npm run test:deplo
 in the CMS and `npm run test:card-links` in the website when changing their
 shared build/card integrations. `npm run build:spa` checks the website bundle
 without fetching content, publishing assets or notifying search engines.
+
+## Micromarket and city ad pages
+
+The area and city campaign pages (`/bangalore/{slug}`, `/hosur`, `/hyderabad`)
+use the `MicromarketAdPage` table, keyed by `(citySlug, slug)`, and the public
+`GET /ad-pages/micromarkets`, which returns approved local copy only. The website
+owns their layout, inventory rules and maps; the CMS edits only local copy.
+`services/micromarketAdContent.js` is byte-identical to the CMS's
+`lib/micromarket-ad-content.mjs` and the website's
+`scripts/lib/micromarket-ad-content.mjs`; change all three together. Seeds live in
+`data/micromarket-ad-pages/` and the CMS's `content/micromarket-ad-pages/`.
+
+Apply the SQL in date order: `20261014_micromarket_ad_pages.sql` (table, RLS and
+the approved Peenya copy), `20261014_area_ad_pages.sql` (Hoskote, Nelamangala,
+the southern group and Hosur as private drafts), then
+`20261022_hyderabad_sheds_ad_pages.sql` (Hyderabad and Bangalore industrial sheds as
+private drafts). Each is safe to repeat and never overwrites an editor's revision.
+Once a Hyderabad row exists, rerunning the 14 October area file stops at its older
+city constraint and changes nothing; rerun the 22 October file instead.
+
+For the 22 October pages, deploy this backend, then the website, apply the SQL,
+deploy the CMS, and approve the drafts last. An older backend rejects approved
+Hyderabad copy, so `GET /ad-pages/micromarkets` fails and every website build stops.
+Run `npm run test:ad-pages` here and in both other checkouts after any change.

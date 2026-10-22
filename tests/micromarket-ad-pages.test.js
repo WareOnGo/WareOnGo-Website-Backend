@@ -42,3 +42,14 @@ test('Hosur and the combined area expose approved local copy through the same AP
   assert.doesNotMatch(JSON.stringify(res.body), /private/);
   assert.throws(() => parseMicromarketAdPages([{ ...areas[0], slug: 'attibele' }]), /identity/);
 });
+test('Hyderabad and industrial sheds expose approved local copy; a city page keeps its own slug', async t => {
+  const pages = ['hyderabad', 'sheds'].map(slug => JSON.parse(fs.readFileSync(new URL('../data/micromarket-ad-pages/' + slug + '.json', import.meta.url), 'utf8')));
+  mock(t, pages.map(content => ({ citySlug: content.citySlug, slug: content.slug, name: content.name, publishedContent: content, draftContent: { private: true } })));
+  const res = response(); await getMicromarketAdPages({}, res);
+  assert.equal(res.code, 200); assert.deepEqual(res.body, { data: pages });
+  assert.equal('whoItSuits' in pages[0].area, false);
+  assert.equal(pages[0].rentGuide.sections.length, 3);
+  assert.throws(() => parseMicromarketAdPages([{ ...pages[0], slug: 'kompally' }]), /identity/);
+  assert.throws(() => parseMicromarketAdPages([{ ...pages[0], rentGuide: { intro: pages[0].rentGuide.intro } }]), /description or titled sections/);
+  assert.throws(() => parseMicromarketAdPages([{ ...pages[1], rentGuide: { ...pages[1].rentGuide, sections: [{ title: 'Rent', body: '' }] } }]), /add text/);
+});
