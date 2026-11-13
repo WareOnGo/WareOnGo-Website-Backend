@@ -28,7 +28,8 @@
     "test:cache": "node tests/cache-bypass.test.js",
     "test:legal": "node --test tests/legal-pages.test.js",
     "test:services": "node --test tests/service-pages.test.js",
-    "test:ad-pages": "node --test tests/ad-pages.test.js tests/micromarket-ad-pages.test.js"
+    "test:ad-pages": "node --test tests/ad-pages.test.js tests/micromarket-ad-pages.test.js",
+    "test:careers": "node --test tests/careers.test.js tests/career-applications.test.js"
   },
   "repository": {
     "type": "git",
