@@ -336,3 +336,12 @@ a fresh request never falls back to stale Redis data.
 Deploy this backend before rebuilding the website with fresh inventory support.
 There are no new environment variables, credentials, cron jobs or migrations.
 Run `npm run test:cache` for isolated cache/controller regression checks.
+
+### CRM user-assignment migration (19 November 2026)
+
+Website intake explicitly creates unassigned leads with `primaryAssigneeUserId: null`
+and `secondaryAssigneeUserId: null`. These are Workspace Member relations in Twenty.
+The retired `assignedTo` and `secondaryAssignee` dropdown fields are never written.
+The existing owner/creator attribution, lead source, Sheets and email integrations are unchanged.
+
+Validation: `npm run test:crm`. Deploy the tested commit manually on the existing Render service.

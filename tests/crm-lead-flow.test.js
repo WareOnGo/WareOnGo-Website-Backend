@@ -159,7 +159,9 @@ for (const c of cases) {
     for (const { arguments: [url, options] } of fetch.mock.calls) {
       assert.equal(url, 'https://crm.example.test/rest/opportunities');
       const payload = JSON.parse(options.body);
-      assert.deepEqual(payload.assignedTo, []);
+      assert.equal(payload.primaryAssigneeUserId, null);
+  assert.equal(payload.secondaryAssigneeUserId, null);
+  assert.ok(!Object.hasOwn(payload, "assignedTo"));
       assert.equal(payload.ownerId, undefined);
       assert.equal(payload.stage, 'NEW_LEAD');
       assert.equal(payload.gclidGoogleAds, undefined);
@@ -229,7 +231,9 @@ for (const c of cases) {
     }
     if (c.type === 'customer_request') assert.ok(payload.description.includes(`Requirements: ${requirements}`));
     assert.equal(payload.stage, 'NEW_LEAD');
-    assert.deepEqual(payload.assignedTo, []);
+    assert.equal(payload.primaryAssigneeUserId, null);
+  assert.equal(payload.secondaryAssigneeUserId, null);
+  assert.ok(!Object.hasOwn(payload, "assignedTo"));
     assert.equal(console.error.mock.callCount(), 0);
     assert.equal(console.log.mock.callCount(), 1);
     for (const operation of [mocks.create, mocks.mail, mocks.sheet, fetch]) assert.equal(operation.mock.callCount(), 1);
@@ -260,7 +264,9 @@ for (const c of cases) {
       assert.equal(payload.gclidGoogleAds, 'available-click');
       assert.equal(payload.leadSource, 'WEBSITE_GOOGLE_ADS');
       assert.equal(payload.stage, 'NEW_LEAD');
-      assert.deepEqual(payload.assignedTo, []);
+      assert.equal(payload.primaryAssigneeUserId, null);
+  assert.equal(payload.secondaryAssigneeUserId, null);
+  assert.ok(!Object.hasOwn(payload, "assignedTo"));
       assert.equal(payload.ownerId, undefined);
       if (variant.source) assert.ok(payload.description.includes(`Source: ${variant.source}`));
       if (variant.additional_requirements?.startsWith('{')) assert.equal(payload.companyEmail.primaryEmail, 'saved@example.com');

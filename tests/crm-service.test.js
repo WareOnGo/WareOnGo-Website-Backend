@@ -16,7 +16,9 @@ test('contact/callback/landing sources all create unassigned leads without optio
     const payload = buildCrmOpportunity('enquiry', { ...enquiry, source });
     assert.equal(payload.stage, 'NEW_LEAD', source);
     assert.equal(payload.leadSource, 'WEBSITE_SEO');
-    assert.deepEqual(payload.assignedTo, []);
+    assert.equal(payload.primaryAssigneeUserId, null);
+  assert.equal(payload.secondaryAssigneeUserId, null);
+  assert.ok(!Object.hasOwn(payload, "assignedTo"));
     assert.equal(payload.ownerId, undefined);
     assert.deepEqual(payload.createdBy, { source: 'API' });
     assert.deepEqual(payload.pocName, { firstName: 'Asha', lastName: 'Rao' });
@@ -76,7 +78,9 @@ test('only valid available gclid is mapped; CRM control fields cannot come from 
   assert.equal(payload.gclidGoogleAds, gclid);
   assert.equal(payload.leadSource, 'WEBSITE_GOOGLE_ADS');
   assert.equal(payload.stage, 'NEW_LEAD');
-  assert.deepEqual(payload.assignedTo, []);
+  assert.equal(payload.primaryAssigneeUserId, null);
+  assert.equal(payload.secondaryAssigneeUserId, null);
+  assert.ok(!Object.hasOwn(payload, "assignedTo"));
   assert.match(payload.description, /Page: https:\/\/wareongo.com\/request-warehouse/);
   assert.doesNotMatch(JSON.stringify(payload), /Override|secret|RANITA/);
   for (const invalid of ['bad\nvalue', 'x'.repeat(513), 'https://example.com/click']) {
@@ -169,7 +173,9 @@ test('unsupported optional phone values cannot block either kind of lead and rem
       assert.equal(payload.pocPhoneNumber, undefined, `${type}/${phone}`);
       assert.ok(payload.description.includes(`Phone: ${phone}`));
       assert.equal(payload.stage, 'NEW_LEAD');
-      assert.deepEqual(payload.assignedTo, []);
+      assert.equal(payload.primaryAssigneeUserId, null);
+  assert.equal(payload.secondaryAssigneeUserId, null);
+  assert.ok(!Object.hasOwn(payload, "assignedTo"));
     }
   }
 });

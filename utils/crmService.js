@@ -90,7 +90,8 @@ export function buildCrmOpportunity(type, record = {}, context = {}) {
     name: `${company || name || 'Website lead'} - ${type === 'enquiry' ? 'Website enquiry' : 'Warehouse request'}`,
     stage: 'NEW_LEAD',
     leadSource: gclid ? 'WEBSITE_GOOGLE_ADS' : 'WEBSITE_SEO',
-    assignedTo: [],
+    primaryAssigneeUserId: null,
+    secondaryAssigneeUserId: null,
     createdBy: { source: 'API' },
     description: details.map(([label, value]) => [label, descriptionValue(value)])
       .filter(([, value]) => value).map(([label, value]) => `${label}: ${value}`).join('\n'),
